@@ -6,8 +6,8 @@ import (
 	"errors"
 	"flag"
 	"strings"
+	"time"
 )
-
 
 // MirrorlistFilterConfig specifies the filters applied to a Mirrorlist
 type MirrorlistFilterConfig struct{
@@ -45,8 +45,8 @@ const (
 // value of each flag
 type Config struct{
 	Verbose bool // increases logging verbosity
-	ConnectionTimeout int // the number of seconds to wait before a connection times out
-	DownloadTimeout int // the number of seconds to wait before a download times out
+	ConnectionTimeout time.Duration // the duration to wait before a connection times out
+	DownloadTimeout time.Duration // the duration to wait before a download times out
 	Save string // a file path to save the mirrorlist into
 	Threads int // The number of threads used for rating the download speed of the mirrors
 
@@ -105,8 +105,8 @@ func (c *Config) Parse(args []string) (error){
 	flagSet.BoolVar(&c.Verbose, "verbose", c.Verbose, "Increases the logging verbosity")
 
 	// set timeout flags
-	flagSet.IntVar(&c.ConnectionTimeout, "connection-timeout", c.ConnectionTimeout, "The number of seconds to wait before a connection times out")
-	flagSet.IntVar(&c.DownloadTimeout, "download-timeout", c.DownloadTimeout, "The number of seconds to wait before a download times out")
+	flagSet.DurationVar(&c.ConnectionTimeout, "connection-timeout", c.ConnectionTimeout, "The duration to wait before a connection times out")
+	flagSet.DurationVar(&c.DownloadTimeout, "download-timeout", c.DownloadTimeout, "The duration to wait before a download times out")
 
 	// set the file path flag
 	flagSet.StringVar(&c.Save, "save", c.Save, "The file path to save the output into")
@@ -153,11 +153,11 @@ func (c *Config) validate(configError *ConfigError){
 		configError.WriteString("Invalid value for option 'threads': value must be greater than 0\n")
 	}
 
-	if c.DownloadTimeout <= 0{
+	if c.DownloadTimeout.Seconds() <= 0{
 		configError.WriteString("Invalid value for option 'download-timeout': value must be greater than 0\n")
 	}
 
-	if c.ConnectionTimeout <= 0{
+	if c.ConnectionTimeout.Seconds() <= 0{
 		configError.WriteString("Invalid value for option 'connection-timeout': value must be greater than 0\n")
 	}
 
