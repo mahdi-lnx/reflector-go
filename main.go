@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -7,13 +6,15 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"time"
+
 	"github.com/mahdi-lnx/reflector-go/internals/cli"
 )
 
 func main(){
 	appConfig := cli.Config{
-		ConnectionTimeout: 4,
-		DownloadTimeout: 4,
+		ConnectionTimeout: 4 * time.Second, // set default to 4 seconds
+		DownloadTimeout: 4 * time.Second, // set default to 4 seconds
 		Threads: runtime.NumCPU(),
 		Sort: cli.DownloadRate,
 		Format: cli.Mirrorlist,
