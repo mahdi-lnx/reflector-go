@@ -5,38 +5,11 @@ package cli
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"strings"
 	"time"
-)
 
-// MirrorlistFilterConfig specifies the filters applied to a Mirrorlist
-type MirrorlistFilterConfig struct{
-
-	// a duration that a mirror's last sync time must be less than or equal to
-	//
-	// Note: 0 indicates any sync time is fine
-	Age time.Duration 
-
-	Country string // a country that a mirror must belong to
-
-	// the number of enteries in the Mirrorlist
-	//
-	// Note: 0 indicates unlimited enteries
-	Number int 
-}
-
-
-const (
-	Mirrorlist = "mirrorlist" 
-	Json = "json" 
-	Table = "table" 
-)
-
-
-const (
-	Age = "age" 
-	DownloadRate = "download-rate" 
-	Score = "score" 
+	"github.com/mahdi-lnx/reflector-go/internals/mirrorlist"
 )
 
 
@@ -54,20 +27,20 @@ type Config struct{
 	// specifes a sort cirteria to sort the Mirrolist by
 	//
 	// Possible values:
-	// 	- [DownloadRate]
-	// 	- [Age]
-	// 	- [Score]
-	Sort string  
+	// 	- [mirrorlist.DownloadRate]
+	// 	- [mirrorlist.Age]
+	// 	- [mirrorlist.Score]
+	Sort mirrorlist.SortCriteria  
 
 	// specifies the output format
 	//
 	// Possible values:
-	//	- [Mirrorlist]
-	//	- [Json]
-	//	- [Table]
-	Format string
+	//	- [mirrorlist.MirrorlistFormat]
+	//	- [mirrorlist.JsonFormat]
+	//	- [mirrorlist.TableFormat]
+	Format mirrorlist.FormatOption
 
-	MirrorlistFilterConfig
+	mirrorlist.FilterOptions
 }
 
 
@@ -98,9 +71,8 @@ func (ce *ConfigError) Unwrap() error{
 // with the specified defaults being the default values
 // for each flag
 //
-// LoadConfig internally uses [flag.Parse] under the hood
-// to parse the flags; hence, if the parsed flags are incorrect,
-// the error is handled the usual way [flag.Parse] handles it
+// Note: if the returned error is not nil, the values
+// of c must not be reliad on
 func (c *Config) Parse(args []string) (error){
 	flagSet := flag.NewFlagSet("reflector", flag.ContinueOnError)
 
@@ -115,10 +87,12 @@ func (c *Config) Parse(args []string) (error){
 	flagSet.StringVar(&c.Save, "save", c.Save, "The file path to save the output into")
 
 	// set the format flag
-	flagSet.StringVar(&c.Format, "format", c.Format, "The output format")
+	var mirrorlistFormat string
+	flagSet.StringVar(&mirrorlistFormat, "format", string(c.Format), "The output format")
 
 	// set the sort flag
-	flagSet.StringVar(&c.Sort, "sort", c.Sort, "The cirteria to sort the Mirrolist by")
+	var sortCriteria string
+	flagSet.StringVar(&sortCriteria, "sort", string(c.Sort), "The cirteria to sort the Mirrolist by")
 
 	// set the threads flag
 	flagSet.IntVar(&c.Threads, "threads", c.Threads, "The number of threads used for rating the download speed of the mirrors")
@@ -133,6 +107,10 @@ func (c *Config) Parse(args []string) (error){
 	flagSet.SetOutput(accErr)
 
 	err := flagSet.Parse(args)
+
+	// update c.Sort and c.Format
+	c.Sort = mirrorlist.SortCriteria(sortCriteria)
+	c.Format = mirrorlist.FormatOption(mirrorlistFormat)
 
 	if err != nil {
 		accErr.cause = err
@@ -172,12 +150,24 @@ func (c *Config) validate(configError *ConfigError){
 		configError.WriteString("Invalid value for option 'number': value must be greater than to or equal to 0\n")
 	}
 
-	if c.Format != "table" && c.Format != "mirrorlist" && c.Format != "json"{
-		configError.WriteString("Invalid value for option 'format': value must be one of 'table', 'mirrorlist', or 'json'\n")
+	if c.Format != mirrorlist.MirrorlistFormat && c.Format != mirrorlist.JsonFormat && c.Format != mirrorlist.TableFormat{
+		fmt.Fprintf(
+			configError,
+			"Invalid value for option 'format': value must be one of '%s', '%s', or '%s'\n",
+			mirrorlist.TableFormat,
+			mirrorlist.MirrorlistFormat,
+			mirrorlist.JsonFormat,
+		)
 	}
 
-	if c.Sort != "score" && c.Sort != "age" && c.Sort != "download-rate"{
-			configError.WriteString("Invalid value for option 'sort': value must be one of 'score', 'age', or 'download-rate'\n")
+	if c.Sort != mirrorlist.DownloadRate && c.Sort != mirrorlist.Score && c.Sort != mirrorlist.Age {
+			fmt.Fprintf(
+				configError, 
+				"Invalid value for option 'sort': value must be one of '%s', '%s', or '%s'\n", 
+				mirrorlist.Score,
+				mirrorlist.Age,
+				mirrorlist.DownloadRate,
+			)
 	}
 }
 
