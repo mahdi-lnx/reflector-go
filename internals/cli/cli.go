@@ -87,6 +87,8 @@ func (ce *ConfigError) Error() string{
 	return ce.String()
 }
 
+// Unwrap returns the cause of the ConfigError
+// resulting in the original error to be preserved
 func (ce *ConfigError) Unwrap() error{
 	return ce.cause
 }
