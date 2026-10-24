@@ -11,10 +11,11 @@ import (
 
 // MirrorlistFilterConfig specifies the filters applied to a Mirrorlist
 type MirrorlistFilterConfig struct{
-	// a min number, in hours, that a mirror's last sync time must be less than or equal to
+
+	// a duration that a mirror's last sync time must be less than or equal to
 	//
 	// Note: 0 indicates any sync time is fine
-	Age float64 
+	Age time.Duration 
 
 	Country string // a country that a mirror must belong to
 
@@ -124,7 +125,7 @@ func (c *Config) Parse(args []string) (error){
 
 	// set the filtering flags
 	flagSet.StringVar(&c.Country, "country", c.Country, "Only return mirrors belonging to the specified country")
-	flagSet.Float64Var(&c.Age, "age", c.Age, "Only return mirrors that have synced at least in the last specified hours")
+	flagSet.DurationVar(&c.Age, "age", c.Age, "Only return mirrors that have synced at least in the last specified hours")
 	flagSet.IntVar(&c.Number, "number", c.Number, "Only return at most n mirrors")
 
 	accErr := &ConfigError{}
