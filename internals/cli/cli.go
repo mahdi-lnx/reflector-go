@@ -40,6 +40,11 @@ type Config struct{
 	//	- [mirrorlist.TableFormat]
 	Format mirrorlist.FormatOption
 
+	// the number of enteries in the [mirrorlist.Mirrorlist]
+	//
+	// Note: 0 indicates unlimited enteries
+	Number int 
+
 	mirrorlist.FilterOptions
 }
 
