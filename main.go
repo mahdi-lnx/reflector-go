@@ -20,6 +20,7 @@ func main(){
 		Threads: runtime.NumCPU(),
 		Sort: mirrorlist.DownloadRate,
 		Format: mirrorlist.MirrorlistFormat,
+		Protocol: "https",
 	}
 
 	err := appConfig.Parse(os.Args[1:])

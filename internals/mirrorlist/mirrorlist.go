@@ -74,6 +74,11 @@ type FilterOptions struct{
 	//
 	// Note: an empty string means all countries
 	Country string 
+
+	// the protocol that the mirror must support
+	//
+	// Note: an empty string means any protocol
+	Protocol string
 }
 
 
