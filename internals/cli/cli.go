@@ -67,40 +67,42 @@ func (ce *ConfigError) Unwrap() error{
 	return ce.cause
 }
 
-// LoadConfig loads the flags passed to the app
-// with the specified defaults being the default values
-// for each flag
+// Parse parses args with the fields of c defining the default values
 //
-// Note: if the returned error is not nil, the values
-// of c must not be reliad on
+// Note: Parse is atomic, meaning that if a parse fails c will not be mutated
 func (c *Config) Parse(args []string) (error){
 	flagSet := flag.NewFlagSet("reflector", flag.ContinueOnError)
 
+	// we create a temp copy so that
+	// if the parsing due to validation or some other thing,
+	// c will not be mutated
+	tempC := *c 
+
 	// set the verbosity flag
-	flagSet.BoolVar(&c.Verbose, "verbose", c.Verbose, "Increases the logging verbosity")
+	flagSet.BoolVar(&tempC.Verbose, "verbose", tempC.Verbose, "Increases the logging verbosity")
 
 	// set timeout flags
-	flagSet.DurationVar(&c.ConnectionTimeout, "connection-timeout", c.ConnectionTimeout, "The duration to wait before a connection times out")
-	flagSet.DurationVar(&c.DownloadTimeout, "download-timeout", c.DownloadTimeout, "The duration to wait before a download times out")
+	flagSet.DurationVar(&tempC.ConnectionTimeout, "connection-timeout", tempC.ConnectionTimeout, "The duration to wait before a connection times out")
+	flagSet.DurationVar(&tempC.DownloadTimeout, "download-timeout", tempC.DownloadTimeout, "The duration to wait before a download times out")
 
 	// set the file path flag
-	flagSet.StringVar(&c.Save, "save", c.Save, "The file path to save the output into")
+	flagSet.StringVar(&tempC.Save, "save", tempC.Save, "The file path to save the output into")
 
 	// set the format flag
-	var mirrorlistFormat string
-	flagSet.StringVar(&mirrorlistFormat, "format", string(c.Format), "The output format")
+	mirrorlistFormat :=  string(tempC.Format)
+	flagSet.StringVar(&mirrorlistFormat, "format", mirrorlistFormat, "The output format")
 
 	// set the sort flag
-	var sortCriteria string
-	flagSet.StringVar(&sortCriteria, "sort", string(c.Sort), "The cirteria to sort the Mirrolist by")
+	sortCriteria := string(tempC.Sort)
+	flagSet.StringVar(&sortCriteria, "sort", sortCriteria, "The cirteria to sort the Mirrolist by")
 
 	// set the threads flag
-	flagSet.IntVar(&c.Threads, "threads", c.Threads, "The number of threads used for rating the download speed of the mirrors")
+	flagSet.IntVar(&tempC.Threads, "threads", tempC.Threads, "The number of threads used for rating the download speed of the mirrors")
 
 	// set the filtering flags
-	flagSet.StringVar(&c.Country, "country", c.Country, "Only return mirrors belonging to the specified country")
-	flagSet.DurationVar(&c.Age, "age", c.Age, "Only return mirrors that have synced at least in the last specified hours")
-	flagSet.IntVar(&c.Number, "number", c.Number, "Only return at most n mirrors")
+	flagSet.StringVar(&tempC.Country, "country", tempC.Country, "Only return mirrors belonging to the specified country")
+	flagSet.DurationVar(&tempC.Age, "age", tempC.Age, "Only return mirrors that have synced at least in the last specified hours")
+	flagSet.IntVar(&tempC.Number, "number", tempC.Number, "Only return at most n mirrors")
 
 	accErr := &ConfigError{}
 
@@ -108,21 +110,24 @@ func (c *Config) Parse(args []string) (error){
 
 	err := flagSet.Parse(args)
 
-	// update c.Sort and c.Format
-	c.Sort = mirrorlist.SortCriteria(sortCriteria)
-	c.Format = mirrorlist.FormatOption(mirrorlistFormat)
-
 	if err != nil {
 		accErr.cause = err
 		return accErr
 	}
 
-	c.validate(accErr)
+	// update tempC.Sort and tempC.Format
+	tempC.Sort = mirrorlist.SortCriteria(sortCriteria)
+	tempC.Format = mirrorlist.FormatOption(mirrorlistFormat)
+
+	tempC.validate(accErr)
 
 	if accErr.Len() > 0{
 		accErr.cause = ErrInvalidConfig
 		return accErr
 	}
+
+	// mutate c
+	*c = tempC
 
 	return nil
 }
