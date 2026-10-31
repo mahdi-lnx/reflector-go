@@ -102,7 +102,7 @@ type FormatOption string
 const (
 	PacmanFormat FormatOption = "pacman" 
 	JsonFormat FormatOption = "json" 
-	TableFormat FormatOption = "table" 
+	PrettyJsonFormat FormatOption = "pretty-json"
 )
 
 
@@ -206,7 +206,7 @@ func (ml Mirrorlist) Write(out io.Writer, formatOption FormatOption) error{
 					return fmt.Errorf("write mirrorlist as pacman format: %w", err)
 				}
 			}
-		case TableFormat:
+		case PrettyJsonFormat:
 			//TODO
 		case JsonFormat: 
 			err := json.MarshalWrite(out, ml)

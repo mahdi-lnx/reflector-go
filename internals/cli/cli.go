@@ -37,7 +37,7 @@ type Config struct{
 	// Possible values:
 	//	- [mirrorlist.MirrorlistFormat]
 	//	- [mirrorlist.JsonFormat]
-	//	- [mirrorlist.TableFormat]
+	//	- [mirrorlist.PrettyJsonFormat]
 	Format mirrorlist.FormatOption
 
 	// the number of enteries in the [mirrorlist.Mirrorlist]
@@ -160,11 +160,11 @@ func (c *Config) validate(configError *ConfigError){
 		configError.WriteString("Invalid value for option 'number': value must be greater than to or equal to 0\n")
 	}
 
-	if c.Format != mirrorlist.PacmanFormat && c.Format != mirrorlist.JsonFormat && c.Format != mirrorlist.TableFormat{
+	if c.Format != mirrorlist.PacmanFormat && c.Format != mirrorlist.JsonFormat && c.Format != mirrorlist.PrettyJsonFormat{
 		fmt.Fprintf(
 			configError,
 			"Invalid value for option 'format': value must be one of '%s', '%s', or '%s'\n",
-			mirrorlist.TableFormat,
+			mirrorlist.PrettyJsonFormat,
 			mirrorlist.PacmanFormat,
 			mirrorlist.JsonFormat,
 		)
