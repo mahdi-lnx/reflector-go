@@ -192,9 +192,29 @@ func (ml Mirrorlist) Write(out io.Writer, formatOption FormatOption) error{
 
 	switch formatOption{
 		case PacmanFormat:
+			// we don't use goroutines because
+			// the order in which the mirrors will be writen
+			// is not deterministic; hence, the sorting order may not
+			// be preserved
+
+			for _, mirror := range ml{
+				url := strings.TrimRight(strings.TrimSpace(mirror.Url), "/") 
+				
+				_, err := fmt.Fprintf(out, "Server = %s/$repo/os/$arch\n", url)
+				
+				if err != nil{
+					return fmt.Errorf("write mirrorlist as pacman format: %w", err)
+				}
+			}
 		case TableFormat:
-		case JsonFormat: // more explicit than default
-			return json.MarshalWrite(out, ml)
+			//TODO
+		case JsonFormat: 
+			err := json.MarshalWrite(out, ml)
+			if err != nil{
+				return fmt.Errorf("write mirrorlist as json: %w", err)
+			}
+		default:
+			return fmt.Errorf("unsupported format option '%s'", formatOption)
 	}
 
 	return nil
