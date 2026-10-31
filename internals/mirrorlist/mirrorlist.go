@@ -2,7 +2,9 @@ package mirrorlist
 
 import (
 	"cmp"
+	"encoding/json/v2"
 	"errors"
+	"fmt"
 	"io"
 	"slices"
 	"strings"
@@ -142,7 +144,7 @@ func (ml Mirrorlist) Filter(filterOptions FilterOptions) Mirrorlist{
 }
 
 // Sort sorts the mirrors in [Mirrorlist] based on [SortCriteria]
-func (ml Mirrorlist) Sort(criteria SortCriteria) Mirrorlist{
+func (ml Mirrorlist) Sort(criteria SortCriteria) (Mirrorlist, error){
 
 	sortedMirrorlist := slices.Clone(ml)
 
@@ -164,7 +166,7 @@ func (ml Mirrorlist) Sort(criteria SortCriteria) Mirrorlist{
 
 				return cmp.Compare(m2.DownloadRate, m1.DownloadRate)
 			})
-		case Age: // more explicit than default
+		case Age: 
 			slices.SortFunc(sortedMirrorlist, func(m1, m2 Mirror) int{
 				// if m1 has a time that happend after m2, then m1 should be
 				// before m2, and vice versa
@@ -176,9 +178,11 @@ func (ml Mirrorlist) Sort(criteria SortCriteria) Mirrorlist{
 
 				return m2.LastSync.Compare(m1.LastSync)
 			})
+		default:
+			return nil, fmt.Errorf("unsupported sort criteria '%s'", criteria)
 	}
 
-	return sortedMirrorlist
+	return sortedMirrorlist, nil
 }
 
 // Format formats a mirrorlist based on the given [FormatOption]
@@ -190,6 +194,7 @@ func (ml Mirrorlist) Write(out io.Writer, formatOption FormatOption) error{
 		case PacmanFormat:
 		case TableFormat:
 		case JsonFormat: // more explicit than default
+			return json.MarshalWrite(out, ml)
 	}
 
 	return nil
