@@ -104,10 +104,39 @@ const (
 
 // Filter filters out mirrors in [Mirrorlist] that do not meet 
 // [FilterOptions]
-func (ml Mirrorlist) Filter(threadNum int, filterOptions FilterOptions) Mirrorlist{
-	//TODO: finish this function
+func (ml Mirrorlist) Filter(filterOptions FilterOptions) Mirrorlist{
 
-	return nil
+	// countryMatches is a helper for filtering mirrors based on their countries
+	countryMatches := func(mirror Mirror) bool{
+		countryMatches := filterOptions.Country == "" // any country is allowed
+		countryMatches = countryMatches || strings.EqualFold(filterOptions.Country, mirror.Country) 
+		countryMatches = countryMatches || strings.EqualFold(filterOptions.Country, mirror.CountryCode)
+
+		return countryMatches
+	}
+
+	var filteredMirrorlist Mirrorlist
+	
+	currentTime := time.Now() // calculate the current time once before the filtering begins
+
+	for _, mirror := range ml{
+
+		if !countryMatches(mirror){
+			continue
+		}
+
+		if filterOptions.Protocol != "" && !strings.EqualFold(mirror.Protocol, filterOptions.Protocol){
+			continue
+		}
+
+		if filterOptions.Age != 0 && currentTime.Sub(mirror.LastSync) > filterOptions.Age{
+			continue
+		}
+
+		filteredMirrorlist = append(filteredMirrorlist, mirror)
+	}
+
+	return filteredMirrorlist
 }
 
 // Sort sorts the mirrors in [Mirrorlist] based on [SortCriteria]
