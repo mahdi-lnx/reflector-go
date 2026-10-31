@@ -1,7 +1,9 @@
 package mirrorlist
 
 import (
+	"cmp"
 	"errors"
+	"io"
 	"slices"
 	"strings"
 	"time"
@@ -96,7 +98,7 @@ const (
 type FormatOption string
 
 const (
-	MirrorlistFormat FormatOption = "mirrorlist" 
+	PacmanFormat FormatOption = "pacman" 
 	JsonFormat FormatOption = "json" 
 	TableFormat FormatOption = "table" 
 )
@@ -142,26 +144,55 @@ func (ml Mirrorlist) Filter(filterOptions FilterOptions) Mirrorlist{
 // Sort sorts the mirrors in [Mirrorlist] based on [SortCriteria]
 func (ml Mirrorlist) Sort(criteria SortCriteria) Mirrorlist{
 
-	sortedMirrorlist := make(Mirrorlist, 0, len(ml))
-
-	//TODO: finish this function
+	sortedMirrorlist := slices.Clone(ml)
 
 	switch criteria { 
 		case Score:
+			slices.SortFunc(sortedMirrorlist, func(m1, m2 Mirror) int{
+			// if m1 has a lower score, then m1 should be before m2, and vice versa
 
+				return cmp.Compare(m1.Score, m2.Score)
+			})
 		case DownloadRate:
+			slices.SortFunc(sortedMirrorlist, func(m1, m2 Mirror) int{
+				// If m1 has a higher donwload rate then, it should be before m2, and vice versa
 
-		default:
+				// if m2 is bigger than m1, then Compare will return a positive
+				// number, meaning that SortFunc would place m1 after m2
+				// if m1 is bigger than m2, then Compare will return a negative
+				// number, meaning that SortFunc would place m2 after m1
+
+				return cmp.Compare(m2.DownloadRate, m1.DownloadRate)
+			})
+		case Age: // more explicit than default
+			slices.SortFunc(sortedMirrorlist, func(m1, m2 Mirror) int{
+				// if m1 has a time that happend after m2, then m1 should be
+				// before m2, and vice versa
+
+				// if m2 is before m1, then Compare will return a negative
+				// number, meaning that SortFunc would place m2 after m1
+				// if m2 is after than m1, then Compare will return a positive
+				// number, meaning that SortFunc would place m1 after m2
+
+				return m2.LastSync.Compare(m1.LastSync)
+			})
 	}
 
 	return sortedMirrorlist
 }
 
-// Format formats a mirrorlist based on the give [FormatOption]
-func (ml Mirrorlist) Format(s FormatOption) string{
+// Format formats a mirrorlist based on the given [FormatOption]
+// and writes the output to out
+func (ml Mirrorlist) Write(out io.Writer, formatOption FormatOption) error{
 	// TODO: finish this function
 
-	return ""
+	switch formatOption{
+		case PacmanFormat:
+		case TableFormat:
+		case JsonFormat: // more explicit than default
+	}
+
+	return nil
 }
 
 // Limit limits at most n enteries from the start of ml
