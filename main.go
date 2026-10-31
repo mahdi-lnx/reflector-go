@@ -19,7 +19,7 @@ func main(){
 		DownloadTimeout: 4 * time.Second, // set default to 4 seconds
 		Threads: runtime.NumCPU(),
 		Sort: mirrorlist.DownloadRate,
-		Format: mirrorlist.MirrorlistFormat,
+		Format: mirrorlist.PacmanFormat,
 		Protocol: "https",
 	}
 
