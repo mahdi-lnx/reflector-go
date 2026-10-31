@@ -2,6 +2,7 @@ package mirrorlist
 
 import (
 	"cmp"
+	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"errors"
 	"fmt"
@@ -188,7 +189,6 @@ func (ml Mirrorlist) Sort(criteria SortCriteria) (Mirrorlist, error){
 // Format formats a mirrorlist based on the given [FormatOption]
 // and writes the output to out
 func (ml Mirrorlist) Write(out io.Writer, formatOption FormatOption) error{
-	// TODO: finish this function
 
 	switch formatOption{
 		case PacmanFormat:
@@ -207,7 +207,10 @@ func (ml Mirrorlist) Write(out io.Writer, formatOption FormatOption) error{
 				}
 			}
 		case PrettyJsonFormat:
-			//TODO
+			err := json.MarshalWrite(out, ml, jsontext.Multiline(true))
+			if err != nil{
+				return fmt.Errorf("write mirrorlist as pretty-json: %w", err)
+			}
 		case JsonFormat: 
 			err := json.MarshalWrite(out, ml)
 			if err != nil{
