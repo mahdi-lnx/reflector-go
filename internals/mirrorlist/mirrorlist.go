@@ -2,11 +2,13 @@ package mirrorlist
 
 import (
 	"cmp"
+	"context"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"slices"
 	"strings"
 	"time"
@@ -50,16 +52,56 @@ type Mirror struct{
 	// IPV6 defines wether the Mirror has a ipv4
 	IPV6 bool `json:"ipv6"`
 
-	// DownloadRate defines the downloadrate of the mirror which is calculated dynamically
+	// DownloadRate defines the download-rate of the mirror which is calculated dynamically
 	// in real-time using [Mirror.Benchmark]
+	//
+	// DownloadRate is calculated as numberOfBytesDownload / elapsedTime (in seconds)
 	//
 	// Note: arch doesn't return have a "download_rate" field, so this field doesnt have to be a pointer
 	DownloadRate float64 `json:"download_rate"` 
 }
 
-// Benchmark benchmarks the DownloadRate of a [Mirror] in real-time
-func (m Mirror) Benchmark(){
-	// TODO: finish this function
+// Benchmark benchmarks [Mirror.DownloadRate] in real-time
+func (m Mirror) Benchmark(ctx context.Context, client *http.Client) (float64, error){
+
+	// set the url to an actual file to download
+	url := fmt.Sprintf("%s/core/os/x86", strings.TrimRight(m.Url, "/"),)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+
+	if err != nil{
+		return 0, fmt.Errorf("failed to init a request with context: %w ", err)
+	}
+
+	startTime := time.Now()
+
+	resp, err := client.Do(req)
+
+	if err != nil{
+		return 0, fmt.Errorf("failed to make a get request to '%s': %w", m.Url, err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK{
+		return 0, fmt.Errorf("recieved status code '%s'", resp.Status)
+	}
+
+	n, err := io.Copy(io.Discard, resp.Body)
+
+	if err != nil {
+		return 0, fmt.Errorf("failed to read the response body: %w", err)
+	}
+
+	elapsedTime := time.Since(startTime).Seconds()
+
+	if elapsedTime == 0{ // this is very unlikely to happen
+		return 0, fmt.Errorf("invalid calculated elapsed time '%f'", elapsedTime)
+	}
+
+	downloadRate := float64(n) / elapsedTime
+
+	return downloadRate, nil
 }
 
 
@@ -70,20 +112,25 @@ type Mirrorlist []Mirror
 // FilterOption specifies the filters that can be applied to a [Mirrorlist]
 type FilterOptions struct{
 
-	// a duration that a [Mirror]'s last sync time must be less than or equal to
+	// Age is a duration that a [Mirror]'s last sync time must be less than or equal to
 	//
 	// Note: 0 indicates any sync time is fine
 	Age time.Duration 
 
-	// a country that a [Mirror] must belong to
+	// Country that a [Mirror] must belong to
 	//
 	// Note: an empty string means all countries
 	Country string 
 
-	// the protocol that the mirror must support
+	// Protocol that the mirror must support
 	//
 	// Note: an empty string means any protocol
 	Protocol string
+
+	// MinCompletion specfies the min number that [Mirror.Completion] must be 
+	//
+	// The value is in precentage, e.g., 99.5 specifies 99.5%
+	MinCompletion float32
 }
 
 
@@ -91,9 +138,9 @@ type FilterOptions struct{
 type SortCriteria string
 
 const (
-	Age SortCriteria = "age" 
-	DownloadRate SortCriteria = "download-rate" 
-	Score SortCriteria = "score" 
+	Age SortCriteria = "age" // sort by sync time
+	DownloadRate SortCriteria = "download-rate"  // sort by download rate
+	Score SortCriteria = "score" // sort by score
 )
 
 
@@ -101,8 +148,13 @@ const (
 type FormatOption string
 
 const (
+	// PacmanFormat is a [FormatOption] thats undrestandble by pacman
 	PacmanFormat FormatOption = "pacman" 
-	JsonFormat FormatOption = "json" 
+
+	// JsonFormat is a json [FormatOption] thats meant to be used by scripts
+	JsonFormat FormatOption = "json"
+
+	// PrettyJsonFormat is a json [FormatOption] thats meant to be readble by humans
 	PrettyJsonFormat FormatOption = "pretty-json"
 )
 
@@ -135,6 +187,10 @@ func (ml Mirrorlist) Filter(filterOptions FilterOptions) Mirrorlist{
 		}
 
 		if filterOptions.Age != 0 && currentTime.Sub(mirror.LastSync) > filterOptions.Age{
+			continue
+		}
+
+		if minCompletion := filterOptions.MinCompletion / 100; minCompletion > mirror.Completion{
 			continue
 		}
 

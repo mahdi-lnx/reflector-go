@@ -21,6 +21,7 @@ func main(){
 		Sort: mirrorlist.DownloadRate,
 		Format: mirrorlist.PacmanFormat,
 		Protocol: "https",
+		MinCompletion: 100,
 	}
 
 	err := appConfig.Parse(os.Args[1:])
