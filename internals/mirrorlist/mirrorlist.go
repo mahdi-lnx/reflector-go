@@ -65,7 +65,7 @@ type Mirror struct{
 func (m Mirror) Benchmark(ctx context.Context, client *http.Client) (float64, error){
 
 	// set the url to an actual file to download
-	url := fmt.Sprintf("%s/core/os/x86", strings.TrimRight(m.Url, "/"),)
+	url := fmt.Sprintf("%s/core/os/x86_64/core.db", strings.TrimRight(m.Url, "/"),)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 
