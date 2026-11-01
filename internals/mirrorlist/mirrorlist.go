@@ -307,17 +307,37 @@ func (ml Mirrorlist) Limit(n int) (Mirrorlist, error){
 
 // Benchmark benchmarks and sets [Mirror.DownloadRate]
 // using [Mirror.Benchmark]
-func (ml Mirrorlist) Benchmark(ctx context.Context, client *http.Client, threads int) error{
+func (ml Mirrorlist) Benchmark(ctx context.Context, client *http.Client, threads int) []error{
 	//TODO: implement this function
 
 	var wg sync.WaitGroup
 
+	var errs []error
+
+	errChannel := make(chan error , 7)
+
+	go func(){
+		for err := range errChannel{
+			errs = append(errs, err)
+		}
+	}()
+
 	for _, mirror := range ml{
 		wg.Go(func(){
-			mirror.Benchmark(ctx, client)
+			downloadRate, err := mirror.Benchmark(ctx, client)
+
+			if err != nil{
+				// TODO: handle this
+			}
+
+			mirror.DownloadRate = downloadRate
 		})
 	}
 
-	return nil
+	wg.Wait()
+
+	close(errChannel)
+
+	return errs
 }
 
