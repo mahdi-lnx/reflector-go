@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -131,6 +132,9 @@ type FilterOptions struct{
 	//
 	// The value is in precentage, e.g., 99.5 specifies 99.5%
 	MinCompletion float32
+
+	// ActiveOnly specifies mirror's that are only active 
+	ActiveOnly bool
 }
 
 
@@ -191,6 +195,10 @@ func (ml Mirrorlist) Filter(filterOptions FilterOptions) Mirrorlist{
 		}
 
 		if minCompletion := filterOptions.MinCompletion / 100; minCompletion > mirror.Completion{
+			continue
+		}
+
+		if filterOptions.ActiveOnly && !mirror.Active{
 			continue
 		}
 
@@ -295,5 +303,21 @@ func (ml Mirrorlist) Limit(n int) (Mirrorlist, error){
 	}
 
 	return slices.Clone(ml[:min(len(ml), n)]), nil
+}
+
+// Benchmark benchmarks and sets [Mirror.DownloadRate]
+// using [Mirror.Benchmark]
+func (ml Mirrorlist) Benchmark(ctx context.Context, client *http.Client, threads int) error{
+	//TODO: implement this function
+
+	var wg sync.WaitGroup
+
+	for _, mirror := range ml{
+		wg.Go(func(){
+			mirror.Benchmark(ctx, client)
+		})
+	}
+
+	return nil
 }
 

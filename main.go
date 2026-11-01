@@ -22,6 +22,7 @@ func main(){
 		Format: mirrorlist.PacmanFormat,
 		Protocol: "https",
 		MinCompletion: 100,
+		ActiveOnly: true,
 	}
 
 	err := appConfig.Parse(os.Args[1:])
