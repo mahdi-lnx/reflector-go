@@ -19,8 +19,10 @@ import (
 // value of each flag
 type Config struct{
 	Verbose bool // increases logging verbosity
-	ConnectionTimeout time.Duration // the duration to wait before a connection times out
-	DownloadTimeout time.Duration // the duration to wait before a download times out
+
+	ConnectionTimeout time.Duration // the duration to wait for a tcp connection to establish
+	RequestTimeout time.Duration // the duration to wait before a http transaction completes
+
 	Save string // a file path to save the mirrorlist into
 	Threads int // The number of threads used for rating the download speed of the mirrors
 
@@ -88,7 +90,7 @@ func (c *Config) Parse(args []string) (error){
 
 	// set timeout flags
 	flagSet.DurationVar(&tempC.ConnectionTimeout, "connection-timeout", tempC.ConnectionTimeout, "The duration to wait before a connection times out")
-	flagSet.DurationVar(&tempC.DownloadTimeout, "download-timeout", tempC.DownloadTimeout, "The duration to wait before a download times out")
+	flagSet.DurationVar(&tempC.RequestTimeout, "request-timeout", tempC.RequestTimeout, "The duration to wait before a http transaction completes")
 
 	// set the file path flag
 	flagSet.StringVar(&tempC.Save, "save", tempC.Save, "The file path to save the output into")
@@ -144,11 +146,11 @@ func (c *Config) validate(configError *ConfigError){
 		configError.WriteString("Invalid value for option 'threads': value must be greater than 0\n")
 	}
 
-	if c.DownloadTimeout.Seconds() <= 0{
-		configError.WriteString("Invalid value for option 'download-timeout': value must be greater than 0\n")
+	if c.RequestTimeout <= 0{
+		configError.WriteString("Invalid value for option 'request-timeout': value must be greater than 0\n")
 	}
 
-	if c.ConnectionTimeout.Seconds() <= 0{
+	if c.ConnectionTimeout <= 0{
 		configError.WriteString("Invalid value for option 'connection-timeout': value must be greater than 0\n")
 	}
 

@@ -16,7 +16,7 @@ import (
 func main(){
 	appConfig := cli.Config{
 		ConnectionTimeout: 4 * time.Second, // set default to 4 seconds
-		DownloadTimeout: 4 * time.Second, // set default to 4 seconds
+		RequestTimeout: 4 * time.Second, // set default to 4 seconds
 		Threads: runtime.NumCPU(),
 		Sort: mirrorlist.DownloadRate,
 		Format: mirrorlist.PacmanFormat,
