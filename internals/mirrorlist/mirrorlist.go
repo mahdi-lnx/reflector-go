@@ -307,36 +307,91 @@ func (ml Mirrorlist) Limit(n int) (Mirrorlist, error){
 
 // Benchmark benchmarks and sets [Mirror.DownloadRate]
 // using [Mirror.Benchmark]
+//
+// Note: Benchmark always spawns threads + 1 goroutines in total, with the extra
+// being the error handling goroutine
+//
+// Note: if ctx is cancelled or its deadline has reached then the error returned by ctx.Err()
+// will be an element of the returned slice
 func (ml Mirrorlist) Benchmark(ctx context.Context, client *http.Client, threads int) []error{
-	//TODO: implement this function
 
+	var errs []error 
+
+	if threads <= 0 {
+		errs = append(errs, errors.New("The number of specified goroutines must be greater than zero"))
+
+		return errs
+	}
+
+	mirrorChan:= make(chan *Mirror, 7)
+	errChan := make(chan error, 7)
+	doneChan := make(chan any)
 	var wg sync.WaitGroup
 
-	var errs []error
 
-	errChannel := make(chan error , 7)
+	for range threads{
 
+		wg.Go(func(){
+			for{
+				select{
+					case mirror, ok := <- mirrorChan:
+						if !ok || ctx.Err() != nil{
+							// if ctx was cancelled or the channel is closed, then dont make a request 
+							return
+						}
+
+						downloadRate, err := mirror.Benchmark(ctx, client)
+
+						if err != nil{
+							if ctx.Err() != nil{
+								// error occured due to ctx being cancelled
+								// no need to report the error
+								return
+							}
+							errChan <- fmt.Errorf("mirror '%s' caused an error: %w", mirror.Url, err)
+							continue
+						}
+
+						mirror.DownloadRate = downloadRate
+					case <- ctx.Done():
+						return
+				}
+			}
+		})
+	}
+
+	// spawn an error handling goroutine
 	go func(){
-		for err := range errChannel{
+		defer close(doneChan)
+
+		for err := range errChan{
 			errs = append(errs, err)
 		}
 	}()
 
-	for _, mirror := range ml{
-		wg.Go(func(){
-			downloadRate, err := mirror.Benchmark(ctx, client)
+	producerLoop:
+	for i := range ml{
+		if ctx.Err() != nil{
+			// ctx was cancelled, dont send a mirror to the channel
+			break 
+		}
 
-			if err != nil{
-				// TODO: handle this
-			}
+		select{
+			case mirrorChan <- &(ml[i]):
 
-			mirror.DownloadRate = downloadRate
-		})
+			case <- ctx.Done():
+				break producerLoop
+		}
 	}
 
+	close(mirrorChan)
 	wg.Wait()
+	close(errChan)
+	<- doneChan
 
-	close(errChannel)
+	if err := ctx.Err(); err != nil{
+		errs = append(errs, err)
+	}
 
 	return errs
 }
