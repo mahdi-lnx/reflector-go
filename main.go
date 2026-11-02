@@ -1,3 +1,4 @@
+
 package main
 
 import (
@@ -9,15 +10,19 @@ import (
 	"time"
 
 	"github.com/mahdi-lnx/reflector-go/internals/cli"
+	"github.com/mahdi-lnx/reflector-go/internals/mirrorlist"
 )
 
 func main(){
 	appConfig := cli.Config{
 		ConnectionTimeout: 4 * time.Second, // set default to 4 seconds
-		DownloadTimeout: 4 * time.Second, // set default to 4 seconds
+		RequestTimeout: 4 * time.Second, // set default to 4 seconds
 		Threads: runtime.NumCPU(),
-		Sort: cli.DownloadRate,
-		Format: cli.Mirrorlist,
+		Sort: mirrorlist.DownloadRate,
+		Format: mirrorlist.PacmanFormat,
+		Protocol: "https",
+		MinCompletion: 100,
+		ActiveOnly: true,
 	}
 
 	err := appConfig.Parse(os.Args[1:])
