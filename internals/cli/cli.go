@@ -47,6 +47,9 @@ type Config struct{
 	// Note: 0 indicates unlimited enteries
 	Number int 
 
+	// NoBenchmark specifies wether a [mirrorlist.Mirrorlist.Benchmark]
+	NoBenchmark bool
+
 	mirrorlist.FilterOptions
 }
 
@@ -87,6 +90,9 @@ func (c *Config) Parse(args []string) (error){
 
 	// set the verbosity flag
 	flagSet.BoolVar(&tempC.Verbose, "verbose", tempC.Verbose, "Increases the logging verbosity")
+
+	// set the benchmark flag
+	flagSet.BoolVar(&tempC.NoBenchmark, "no-benchmark", tempC.NoBenchmark, "Skip benchmarking mirrors download speed")
 
 	// set timeout flags
 	flagSet.DurationVar(&tempC.ConnectionTimeout, "connection-timeout", tempC.ConnectionTimeout, "The duration to wait before a connection times out")
@@ -160,6 +166,10 @@ func (c *Config) validate(configError *ConfigError){
 
 	if c.Number < 0{
 		configError.WriteString("Invalid value for option 'number': value must be greater than to or equal to 0\n")
+	}
+
+	if c.NoBenchmark && c.Sort == mirrorlist.DownloadRate{
+		configError.WriteString("Invalid combination for 'no-benchmark' and 'sort': cannot sort by download-rate when benchmarking is disabled\n")
 	}
 
 	if c.Format != mirrorlist.PacmanFormat && c.Format != mirrorlist.JsonFormat && c.Format != mirrorlist.PrettyJsonFormat{
