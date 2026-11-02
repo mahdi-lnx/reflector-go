@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/mahdi-lnx/reflector-go/internals/cli"
@@ -47,10 +46,13 @@ func run() error{
 	}
 
 	mirrors = mirrors.Filter(appConfig.FilterOptions)
-	errs := mirrors.Benchmark(ctx, client, appConfig.Threads)
 
-	if errs != nil{
-		return errors.Join(errs...)
+	if !appConfig.NoBenchmark{
+		errs := mirrors.Benchmark(ctx, client, appConfig.Threads)
+
+		if errs != nil{
+			return errors.Join(errs...)
+		}
 	}
 
 	mirrors, err = mirrors.Sort(appConfig.Sort)
