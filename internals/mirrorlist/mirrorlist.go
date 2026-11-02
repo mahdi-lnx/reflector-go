@@ -59,7 +59,7 @@ type Mirror struct{
 	// DownloadRate is calculated as numberOfBytesDownload / elapsedTime (in seconds)
 	//
 	// Note: arch doesn't return have a "download_rate" field, so this field doesnt have to be a pointer
-	DownloadRate float64 `json:"download_rate"` 
+	DownloadRate float64 `json:"download_rate,omitzero"` 
 }
 
 // Benchmark benchmarks [Mirror.DownloadRate] in real-time
