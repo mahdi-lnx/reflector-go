@@ -33,7 +33,7 @@ type Mirror struct{
 	DurationStddev float64 `json:"duration_stddev"`
 
 	// Score defines the Score of the Mirror
-	Score int `json:"score"`
+	Score float64 `json:"score"`
 
 	// Active defines wether the mirror is active
 	Active bool `json:"active"`
@@ -71,7 +71,7 @@ func (m Mirror) Benchmark(ctx context.Context, client *http.Client) (float64, er
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 
 	if err != nil{
-		return 0, fmt.Errorf("failed to init a request with context: %w ", err)
+		return 0, fmt.Errorf("failed to init a request with context: %w", err)
 	}
 
 	startTime := time.Now()
@@ -394,5 +394,46 @@ func (ml Mirrorlist) Benchmark(ctx context.Context, client *http.Client, threads
 	}
 
 	return errs
+}
+
+// Fetch fetches a [Mirrorlist] from Arch
+func Fetch(ctx context.Context, client *http.Client) (Mirrorlist, error){
+
+	url := "https://archlinux.org/mirrors/status/json/"
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to init a request with context: %w", err)
+	}
+
+	resp , err := client.Do(req)
+
+	if err != nil{
+		return nil, fmt.Errorf("failed to request mirrors from arch: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK{
+		return nil, fmt.Errorf("recieved status code '%s'", resp.Status)
+	}
+
+	// body is the struct that represents the
+	// response's body
+	//
+	// Note: the actual body returned by arch has other metadata
+	// about arch's own mirror sync process
+	var body struct{
+		Urls Mirrorlist `json:"urls"`
+	}
+
+	err = json.UnmarshalRead(resp.Body, &body)
+
+	if err != nil{
+		return nil, fmt.Errorf("failed to parse the request body: %w", err)
+	}
+
+	return body.Urls, nil
 }
 
