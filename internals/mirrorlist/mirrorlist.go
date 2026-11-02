@@ -190,7 +190,8 @@ func (ml Mirrorlist) Filter(filterOptions FilterOptions) Mirrorlist{
 			continue
 		}
 
-		if filterOptions.Age != 0 && currentTime.Sub(mirror.LastSync) > filterOptions.Age{
+		// this check also checks mirros with unknown sync time, e.g, if the mirror's timestamp was set to null
+		if filterOptions.Age != 0 && (mirror.LastSync.IsZero() || currentTime.Sub(mirror.LastSync) > filterOptions.Age){
 			continue
 		}
 
