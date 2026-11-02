@@ -104,7 +104,7 @@ func (c *Config) Parse(args []string) (error){
 	flagSet.StringVar(&sortCriteria, "sort", sortCriteria, "The cirteria to sort the Mirrolist by")
 
 	// set the threads flag
-	flagSet.IntVar(&tempC.Threads, "threads", tempC.Threads, "The number of threads used for rating the download speed of the mirrors")
+	flagSet.IntVar(&tempC.Threads, "threads", tempC.Threads, "The Maximum number of concurrent workers used to benchmark mirrors download rates (must be greater than 0)")
 
 	// set the filtering flags
 	flagSet.StringVar(&tempC.Country, "country", tempC.Country, "Only return mirrors belonging to the specified country")
