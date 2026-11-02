@@ -310,25 +310,27 @@ func (ml Mirrorlist) Limit(n int) (Mirrorlist, error){
 	return slices.Clone(ml[:min(len(ml), n)]), nil
 }
 
-// Benchmark benchmarks and sets [Mirror.DownloadRate]
-// using [Mirror.Benchmark]
+// Benchmark concurrently measures the download rates of mirrors using [Mirror.Benchmark]
 //
-// Note: Benchmark always spawns threads + 1 goroutines in total, with the extra
-// being the error handling goroutine
+// It returns a new Mirrorlist containing only successfully benchmarked
+// mirrors, along with errors from failed benchmarks.
+// The receiver is not modified
 //
-// Note: if ctx is cancelled or its deadline has reached then the error returned by ctx.Err()
-// will be an element of the returned slice
-func (ml Mirrorlist) Benchmark(ctx context.Context, client *http.Client, threads int) []error{
+// If ctx is canceled or its deadline is exceeded, the returned errors
+// include ctx.Err()
+func (ml Mirrorlist) Benchmark(ctx context.Context, client *http.Client, threads int) (Mirrorlist, []error) {
 
 	var errs []error 
+	newMl := make(Mirrorlist, 0, len(ml)) 
 
 	if threads <= 0 {
 		errs = append(errs, errors.New("The number of specified goroutines must be greater than zero"))
 
-		return errs
+		return nil, errs
 	}
 
-	mirrorChan:= make(chan *Mirror, 7)
+	mirrorChan:= make(chan Mirror, 7)
+	resultChan := make(chan Mirror, 7)
 	errChan := make(chan error, 7)
 	doneChan := make(chan any)
 	var wg sync.WaitGroup
@@ -358,6 +360,11 @@ func (ml Mirrorlist) Benchmark(ctx context.Context, client *http.Client, threads
 						}
 
 						mirror.DownloadRate = downloadRate
+
+						// no need to put this in a select statement
+						// with ctx.Done()
+						resultChan <- mirror
+
 					case <- ctx.Done():
 						return
 				}
@@ -367,11 +374,19 @@ func (ml Mirrorlist) Benchmark(ctx context.Context, client *http.Client, threads
 
 	// spawn an error handling goroutine
 	go func(){
-		defer close(doneChan)
-
 		for err := range errChan{
 			errs = append(errs, err)
 		}
+
+		doneChan <- nil
+
+	}()
+
+	go func(){
+		for result := range resultChan{
+			newMl = append(newMl, result)
+		}
+		doneChan <- nil
 	}()
 
 	producerLoop:
@@ -382,7 +397,7 @@ func (ml Mirrorlist) Benchmark(ctx context.Context, client *http.Client, threads
 		}
 
 		select{
-			case mirrorChan <- &(ml[i]):
+			case mirrorChan <- ml[i]:
 
 			case <- ctx.Done():
 				break producerLoop
@@ -391,14 +406,21 @@ func (ml Mirrorlist) Benchmark(ctx context.Context, client *http.Client, threads
 
 	close(mirrorChan)
 	wg.Wait()
+
+	// close the errChan and resultChan and wait
+	// for the goroutines to signal their completion
 	close(errChan)
+	close(resultChan)
 	<- doneChan
+	<- doneChan
+
+	close(doneChan)
 
 	if err := ctx.Err(); err != nil{
 		errs = append(errs, err)
 	}
 
-	return errs
+	return newMl, errs
 }
 
 // Fetch fetches a [Mirrorlist] from Arch
