@@ -20,7 +20,6 @@ import (
 type Config struct{
 	Verbose bool // increases logging verbosity
 
-	ConnectionTimeout time.Duration // the duration to wait for a tcp connection to establish
 	RequestTimeout time.Duration // the duration to wait before a http transaction completes
 
 	Save string // a file path to save the mirrorlist into
@@ -46,6 +45,9 @@ type Config struct{
 	//
 	// Note: 0 indicates unlimited enteries
 	Number int 
+
+	// NoBenchmark specifies wether a [mirrorlist.Mirrorlist.Benchmark]
+	NoBenchmark bool
 
 	mirrorlist.FilterOptions
 }
@@ -88,8 +90,10 @@ func (c *Config) Parse(args []string) (error){
 	// set the verbosity flag
 	flagSet.BoolVar(&tempC.Verbose, "verbose", tempC.Verbose, "Increases the logging verbosity")
 
-	// set timeout flags
-	flagSet.DurationVar(&tempC.ConnectionTimeout, "connection-timeout", tempC.ConnectionTimeout, "The duration to wait before a connection times out")
+	// set the benchmark flag
+	flagSet.BoolVar(&tempC.NoBenchmark, "no-benchmark", tempC.NoBenchmark, "Skip benchmarking mirrors download speed")
+
+	// set the timeout flag
 	flagSet.DurationVar(&tempC.RequestTimeout, "request-timeout", tempC.RequestTimeout, "The duration to wait before a http transaction completes")
 
 	// set the file path flag
@@ -150,16 +154,16 @@ func (c *Config) validate(configError *ConfigError){
 		configError.WriteString("Invalid value for option 'request-timeout': value must be greater than 0\n")
 	}
 
-	if c.ConnectionTimeout <= 0{
-		configError.WriteString("Invalid value for option 'connection-timeout': value must be greater than 0\n")
-	}
-
 	if c.Age < 0{
 		configError.WriteString("Invalid value for option 'age': value must be greater than or equal to 0\n")
 	}
 
 	if c.Number < 0{
 		configError.WriteString("Invalid value for option 'number': value must be greater than to or equal to 0\n")
+	}
+
+	if c.NoBenchmark && c.Sort == mirrorlist.DownloadRate{
+		configError.WriteString("Invalid combination for 'no-benchmark' and 'sort': cannot sort by download-rate when benchmarking is disabled\n")
 	}
 
 	if c.Format != mirrorlist.PacmanFormat && c.Format != mirrorlist.JsonFormat && c.Format != mirrorlist.PrettyJsonFormat{
