@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"runtime"
 	"time"
 
 	"github.com/mahdi-lnx/reflector-go/internals/cli"
@@ -15,11 +14,10 @@ import (
 )
 
 func run() error{
-	//TODO: implement this function
 
 	appConfig := cli.Config{
-		RequestTimeout: 4 * time.Second, // set default to 7 seconds
-		Threads: runtime.NumCPU(),
+		RequestTimeout: 7 * time.Second, // set default to 7 seconds
+		Threads: 47,
 		Sort: mirrorlist.DownloadRate,
 		Format: mirrorlist.PacmanFormat,
 		Protocol: "https",
@@ -47,18 +45,27 @@ func run() error{
 
 	mirrors = mirrors.Filter(appConfig.FilterOptions)
 
+	if len(mirrors) == 0{
+		// no mirror passed the filter
+
+		return errors.New("no mirrors matched the specified filters")
+	}
+
 	if !appConfig.NoBenchmark{
-		benchmarkedMirrors, errs := mirrors.Benchmark(ctx, client, appConfig.Threads)
+		//TODO: need to decide how to handle the errs if appConfig.verbosity is true
+		
+		// t := time.Now() TODO: need to remove this
 
-		//TODO: handle len(benchmarkedMirrors) == 0
+		benchmarkedMirrors, _ := mirrors.Benchmark(ctx, client, appConfig.Threads)
 
-		if errs != nil{
-			if ctx.Err() != nil{
-				// TODO: gracefull shutdown
-			}
+		// fmt.Println(time.Since(t).Seconds()) TODO: need to remove this
 
-			//TODO: handle other errs
+		if err := ctx.Err(); err != nil{
+			return fmt.Errorf("reflector was intrupted: %w", err)
+		}
 
+		if len(benchmarkedMirrors) == 0{
+			return errors.New("no successfully benchmarked mirrors")
 		}
 
 		mirrors = benchmarkedMirrors
@@ -85,7 +92,10 @@ func run() error{
 		return err
 	}
 
+	defer file.Close()
+
 	err = mirrors.Write(file, appConfig.Format)
+
 
 	if err != nil{
 		return err
