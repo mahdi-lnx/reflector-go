@@ -18,8 +18,7 @@ func run() error{
 	//TODO: implement this function
 
 	appConfig := cli.Config{
-		ConnectionTimeout: 4 * time.Second, // set default to 4 seconds
-		RequestTimeout: 4 * time.Second, // set default to 4 seconds
+		RequestTimeout: 4 * time.Second, // set default to 7 seconds
 		Threads: runtime.NumCPU(),
 		Sort: mirrorlist.DownloadRate,
 		Format: mirrorlist.PacmanFormat,
