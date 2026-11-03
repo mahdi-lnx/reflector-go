@@ -30,12 +30,13 @@ func run() error{
 	err := appConfig.Parse(os.Args[1:])
 
 	if err != nil{
-
 		return err
 	}
 
-	//TODO: setup the context and the nessasary timeouts for client
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: appConfig.RequestTimeout,
+	}
+
 	ctx := context.TODO()
 
 	mirrors, err := mirrorlist.Fetch(ctx, client)
@@ -47,26 +48,48 @@ func run() error{
 	mirrors = mirrors.Filter(appConfig.FilterOptions)
 
 	if !appConfig.NoBenchmark{
-		errs := mirrors.Benchmark(ctx, client, appConfig.Threads)
+		benchmarkedMirrors, errs := mirrors.Benchmark(ctx, client, appConfig.Threads)
+
+		//TODO: handle len(benchmarkedMirrors) == 0
 
 		if errs != nil{
-			return errors.Join(errs...)
+			if ctx.Err() != nil{
+				// TODO: gracefull shutdown
+			}
+
+			//TODO: handle other errs
+
 		}
+
+		mirrors = benchmarkedMirrors
 	}
 
-	mirrors, err = mirrors.Sort(appConfig.Sort)
+	// its impossible for the following to return non-nil errors
+	mirrors, _ = mirrors.Sort(appConfig.Sort)
+	mirrors, _ = mirrors.Limit(appConfig.Number)
+
+	if appConfig.Save == ""{
+		// write the mirrorlist to stdout
+		err := mirrors.Write(os.Stdout, appConfig.Format)
+
+		if err != nil{
+			return err
+		}
+		return nil
+	}
+
+	// on a fresh installed arch system /etc/pacman.d/mirrorlist has a mode of 0o644
+	file, err := os.OpenFile(appConfig.Save, os.O_CREATE | os.O_WRONLY | os.O_TRUNC, 0o644)
 
 	if err != nil{
 		return err
 	}
 
-	mirrors, err = mirrors.Limit(appConfig.Number)
+	err = mirrors.Write(file, appConfig.Format)
 
 	if err != nil{
 		return err
 	}
-
-	//TODO: handle the output write
 
 	return nil
 }
