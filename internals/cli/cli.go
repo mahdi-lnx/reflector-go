@@ -1,4 +1,3 @@
-
 // Package cli provides the necessary cli apis for this app
 package cli
 
@@ -6,12 +5,12 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/mahdi-lnx/reflector-go/internals/mirrorlist"
 )
-
 
 // A Config specifies the config flags passed to the app
 //
@@ -111,7 +110,27 @@ func (c *Config) Parse(args []string) (error){
 	flagSet.IntVar(&tempC.Threads, "threads", tempC.Threads, "The Maximum number of concurrent workers used to benchmark mirrors download rates (must be greater than 0)")
 
 	// set the filtering flags
-	flagSet.StringVar(&tempC.Country, "country", tempC.Country, "Only return mirrors belonging to the specified country")
+
+	// make a deep copy of the slice
+	countries := make([]string, len(tempC.Countries))
+	copy(countries, tempC.Countries)
+
+	defaultValueDiscarded := false
+
+	flagSet.Func("country", "Only return mirrors belonging to the specified country", func(arg string) error{
+		if !defaultValueDiscarded{
+			countries = []string{}
+			defaultValueDiscarded = true
+		}
+		arg = strings.TrimSpace(arg)
+
+		for value := range strings.SplitSeq(arg, ","){
+			countries = append(countries, strings.TrimSpace(value))
+		}
+
+		return nil
+	})
+
 	flagSet.DurationVar(&tempC.Age, "age", tempC.Age, "Only return mirrors that have synced at least in the last specified hours")
 	flagSet.IntVar(&tempC.Number, "number", tempC.Number, "Only return at most n mirrors")
 
@@ -129,6 +148,7 @@ func (c *Config) Parse(args []string) (error){
 	// update tempC.Sort and tempC.Format
 	tempC.Sort = mirrorlist.SortCriteria(sortCriteria)
 	tempC.Format = mirrorlist.FormatOption(mirrorlistFormat)
+	tempC.Countries = countries
 
 	tempC.validate(accErr)
 
@@ -156,6 +176,10 @@ func (c *Config) validate(configError *ConfigError){
 
 	if c.Age < 0{
 		configError.WriteString("Invalid value for option 'age': value must be greater than or equal to 0\n")
+	}
+
+	if slices.Contains(c.Countries, ""){
+		configError.WriteString("Invalid value for option 'country': value can not be an empty string\n")
 	}
 
 	if c.Number < 0{

@@ -122,10 +122,10 @@ type FilterOptions struct{
 	// Note: 0 indicates any sync time is fine
 	Age time.Duration 
 
-	// Country that a [Mirror] must belong to
+	// A list of Countries that a [Mirror] must belong to
 	//
-	// Note: an empty string means all countries
-	Country string 
+	// Note: an nil or an empty slice means all countries
+	Countries []string 
 
 	// Protocol that the mirror must support
 	//
@@ -166,17 +166,26 @@ const (
 	PrettyJsonFormat FormatOption = "pretty-json"
 )
 
-
 // Filter filters out mirrors in [Mirrorlist] that do not meet 
 // [FilterOptions]
 func (ml Mirrorlist) Filter(filterOptions FilterOptions) Mirrorlist{
 
+	if len(filterOptions.Countries) != 0{
+		// lowercase all countries
+		temp := make([]string, len(filterOptions.Countries))
+
+		for i, value := range filterOptions.Countries{
+			temp[i] = strings.ToLower(value)
+		}
+
+		filterOptions.Countries = temp
+	}
+
 	// countryMatches is a helper for filtering mirrors based on their countries
 	countryMatches := func(mirror Mirror) bool{
-		countryMatches := filterOptions.Country == "" // any country is allowed
-		countryMatches = countryMatches || strings.EqualFold(filterOptions.Country, mirror.Country) 
-		countryMatches = countryMatches || strings.EqualFold(filterOptions.Country, mirror.CountryCode)
-
+		countryMatches := len(filterOptions.Countries) == 0 // any country is allowed
+		countryMatches = countryMatches || slices.Contains(filterOptions.Countries, strings.ToLower(mirror.Country))
+		countryMatches = countryMatches || slices.Contains(filterOptions.Countries, strings.ToLower(mirror.CountryCode))
 		return countryMatches
 	}
 
