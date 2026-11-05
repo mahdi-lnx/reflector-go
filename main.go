@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/mahdi-lnx/reflector-go/internals/atomicfile"
 	"github.com/mahdi-lnx/reflector-go/internals/cli"
 	"github.com/mahdi-lnx/reflector-go/internals/mirrorlist"
 )
@@ -85,23 +86,24 @@ func run() error{
 		return nil
 	}
 
-	// on a fresh installed arch system /etc/pacman.d/mirrorlist has a mode of 0o644
-	file, err := os.OpenFile(appConfig.Save, os.O_CREATE | os.O_WRONLY | os.O_TRUNC, 0o644)
+	// on a fresh installed arch system the premission mode
+	// of /etc/pacman.d/mirrorlist is 0o644
+	f, err := atomicfile.NewAtomicFile(appConfig.Save, 0o644)
 
 	if err != nil{
 		return err
 	}
 
-	defer file.Close()
+	// ignore the error returned by Close for now
+	defer f.Close()
 
-	err = mirrors.Write(file, appConfig.Format)
-
+	err = mirrors.Write(f, appConfig.Format)
 
 	if err != nil{
 		return err
 	}
 
-	return nil
+	return f.Commit()
 }
 
 
