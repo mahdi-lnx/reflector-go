@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"time"
@@ -38,26 +39,53 @@ func run() error{
 
 	ctx := context.TODO()
 
-	mirrors, err := mirrorlist.Fetch(ctx, client)
+	logHandlerOptions := &slog.HandlerOptions{ Level: slog.LevelError, }
+
+	if appConfig.Verbose{
+		logHandlerOptions.Level = slog.LevelInfo
+	}
+
+	logger := slog.New(slog.NewTextHandler(os.Stderr, logHandlerOptions))
+
+
+	logger.Info("Fetching mirrors")
+
+	totalFetchedMirrors, err := mirrorlist.Fetch(ctx, client)
 
 	if err != nil{
 		return err
 	}
 
-	mirrors = mirrors.Filter(appConfig.FilterOptions)
+	logger.Info("Fetched mirrors", "count", len(totalFetchedMirrors))
 
-	if len(mirrors) == 0{
+	logger.Info("Filtering mirrors", "count", len(totalFetchedMirrors))
+
+	filteredMirrors := totalFetchedMirrors.Filter(appConfig.FilterOptions)
+
+	if len(filteredMirrors) == 0{
 		// no mirror passed the filter
 
 		return errors.New("no mirrors matched the specified filters")
 	}
+
+	logger.Info(
+		"Filtered mirrors", 
+		"matched", len(filteredMirrors), 
+		"excluded", len(totalFetchedMirrors) - len(filteredMirrors),
+	)
+
+	benchmarkedMirrors := filteredMirrors
 
 	if !appConfig.NoBenchmark{
 		//TODO: need to decide how to handle the errs if appConfig.verbosity is true
 		
 		// t := time.Now() TODO: need to remove this
 
-		benchmarkedMirrors, _ := mirrors.Benchmark(ctx, client, appConfig.Threads)
+		logger.Info("Benchmarking mirrors", "count", len(filteredMirrors), "workers", appConfig.Threads)
+
+		result, errs := filteredMirrors.Benchmark(ctx, client, appConfig.Threads)
+
+		benchmarkedMirrors = result
 
 		// fmt.Println(time.Since(t).Seconds()) TODO: need to remove this
 
@@ -69,16 +97,38 @@ func run() error{
 			return errors.New("no successfully benchmarked mirrors")
 		}
 
-		mirrors = benchmarkedMirrors
+		for _, err := range errs {
+			logger.Warn("Mirror Benchmark failed", "error", err.Error())
+		}
+
+		logger.Info(
+			"Benchmarked mirrors", 
+			"success", len(benchmarkedMirrors), 
+			"failed", len(errs),
+		)
 	}
 
-	// its impossible for the following to return non-nil errors
-	mirrors, _ = mirrors.Sort(appConfig.Sort)
-	mirrors, _ = mirrors.Limit(appConfig.Number)
+	logger.Info("Sorting mirrors", "by", appConfig.Sort)
+
+	sortedMirrors, err := benchmarkedMirrors.Sort(appConfig.Sort)
+
+	if err != nil{
+		return err
+	}
+
+	logger.Info("Sorted mirrors", "count", len(sortedMirrors))
+
+	finalMirrors, err := sortedMirrors.Limit(appConfig.Number)
+
+	if err != nil{
+		return err
+	}
+
+	logger.Info("Selected mirrors", "count", len(finalMirrors))
 
 	if appConfig.Save == ""{
 		// write the mirrorlist to stdout
-		err := mirrors.Write(os.Stdout, appConfig.Format)
+		err := finalMirrors.Write(os.Stdout, appConfig.Format)
 
 		if err != nil{
 			return err
@@ -97,13 +147,21 @@ func run() error{
 	// ignore the error returned by Close for now
 	defer f.Close()
 
-	err = mirrors.Write(f, appConfig.Format)
+	err = finalMirrors.Write(f, appConfig.Format)
 
 	if err != nil{
 		return err
 	}
 
-	return f.Commit()
+	err = f.Commit()
+
+	if err != nil{
+		return err
+	}
+
+	logger.Info("Saved mirrorlist", "path", appConfig.Save, "count", len(finalMirrors))
+
+	return nil
 }
 
 
