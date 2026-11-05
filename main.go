@@ -95,6 +95,8 @@ func benchmarkMirrors(
 
 func run() error {
 
+	startTime := time.Now() // start the benchmarking
+
 	appConfig := cli.Config{
 		RequestTimeout: 7 * time.Second, // set default to 7 seconds
 		Threads:        47,
@@ -173,7 +175,19 @@ func run() error {
 
 	logger.Info("Selected mirrors", "count", len(finalMirrors))
 
-	return writeOutput(finalMirrors, appConfig, logger)
+	err = writeOutput(finalMirrors, appConfig, logger)
+
+	if err != nil{
+		return err
+	}
+
+	logger.Info(
+		"Mirrorlist generation completed", 
+		"duration", time.Since(startTime), 
+		"count", len(finalMirrors),
+	)
+
+	return nil
 }
 
 func main() {
