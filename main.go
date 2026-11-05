@@ -74,7 +74,7 @@ func benchmarkMirrors(
 		}
 
 		for _, err := range errs {
-			logger.Warn("Mirror benchmark failed", "error", err.Error())
+			logger.Warn("Mirror benchmark failed", "error", err)
 		}
 
 		if len(benchmarkedMirrors) == 0 {
@@ -93,9 +93,62 @@ func benchmarkMirrors(
 	return mirrors, nil
 }
 
-func run() error {
+func run(ctx context.Context, client *http.Client, config cli.Config, logger *slog.Logger) error {
 
-	startTime := time.Now() // start the benchmarking
+	logger.Info("Fetching mirrors")
+
+	totalFetchedMirrors, err := mirrorlist.Fetch(ctx, client)
+
+	if err != nil {
+		return err
+	}
+
+	logger.Info("Fetched mirrors", "count", len(totalFetchedMirrors))
+
+	logger.Info("Filtering mirrors", "count", len(totalFetchedMirrors))
+
+	filteredMirrors := totalFetchedMirrors.Filter(config.FilterOptions)
+
+	if len(filteredMirrors) == 0 {
+		// no mirror passed the filter
+
+		return errors.New("no mirrors matched the specified filters")
+	}
+
+	logger.Info(
+		"Filtered mirrors",
+		"matched", len(filteredMirrors),
+		"excluded", len(totalFetchedMirrors)-len(filteredMirrors),
+	)
+
+	processedMirrors, err := benchmarkMirrors(ctx, client, filteredMirrors, config, logger)
+
+	if err != nil {
+		return err
+	}
+
+	logger.Info("Sorting mirrors", "by", config.Sort)
+
+	sortedMirrors, err := processedMirrors.Sort(config.Sort)
+
+	if err != nil {
+		return err
+	}
+
+	finalMirrors, err := sortedMirrors.Limit(config.Number)
+
+	if err != nil {
+		return err
+	}
+
+	logger.Info("Selected mirrors", "count", len(finalMirrors))
+
+	return writeOutput(finalMirrors, config, logger)
+}
+
+func main() {
+
+	startTime := time.Now()
 
 	appConfig := cli.Config{
 		RequestTimeout: 7 * time.Second, // set default to 7 seconds
@@ -110,7 +163,13 @@ func run() error {
 	err := appConfig.Parse(os.Args[1:])
 
 	if err != nil {
-		return err
+		if errors.Is(err, flag.ErrHelp) {
+			fmt.Print(err)
+			return
+		}
+
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
 	}
 
 	client := &http.Client{
@@ -127,79 +186,16 @@ func run() error {
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, logHandlerOptions))
 
-	logger.Info("Fetching mirrors")
-
-	totalFetchedMirrors, err := mirrorlist.Fetch(ctx, client)
+	err = run(ctx, client, appConfig, logger)
 
 	if err != nil {
-		return err
-	}
-
-	logger.Info("Fetched mirrors", "count", len(totalFetchedMirrors))
-
-	logger.Info("Filtering mirrors", "count", len(totalFetchedMirrors))
-
-	filteredMirrors := totalFetchedMirrors.Filter(appConfig.FilterOptions)
-
-	if len(filteredMirrors) == 0 {
-		// no mirror passed the filter
-
-		return errors.New("no mirrors matched the specified filters")
-	}
-
-	logger.Info(
-		"Filtered mirrors",
-		"matched", len(filteredMirrors),
-		"excluded", len(totalFetchedMirrors)-len(filteredMirrors),
-	)
-
-	processedMirrors, err := benchmarkMirrors(ctx, client, filteredMirrors, appConfig, logger)
-
-	if err != nil {
-		return err
-	}
-
-	logger.Info("Sorting mirrors", "by", appConfig.Sort)
-
-	sortedMirrors, err := processedMirrors.Sort(appConfig.Sort)
-
-	if err != nil {
-		return err
-	}
-
-	finalMirrors, err := sortedMirrors.Limit(appConfig.Number)
-
-	if err != nil {
-		return err
-	}
-
-	logger.Info("Selected mirrors", "count", len(finalMirrors))
-
-	err = writeOutput(finalMirrors, appConfig, logger)
-
-	if err != nil{
-		return err
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
 	}
 
 	logger.Info(
 		"Mirrorlist generation completed", 
 		"duration", time.Since(startTime), 
-		"count", len(finalMirrors),
 	)
-
-	return nil
 }
 
-func main() {
-	err := run()
-
-	if err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			fmt.Print(err)
-			return
-		}
-
-		fmt.Fprintln(os.Stderr, err.Error())
-		os.Exit(1)
-	}
-}
