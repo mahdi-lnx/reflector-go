@@ -16,7 +16,7 @@ import (
 )
 
 // Mirror defines a single arch mirror
-type Mirror struct{
+type Mirror struct {
 
 	// Url defines the url of the Mirror
 	Url string `json:"url"`
@@ -27,9 +27,9 @@ type Mirror struct{
 	// LastSync defines the datetime that the mirror was last synced in zulu time
 	LastSync time.Time `json:"last_sync"`
 
-	Completion float32 `json:"completion_pct"`
-	Delay int `json:"delay"`
-	DurationAvg float64 `json:"duration_avg"`
+	Completion     float32 `json:"completion_pct"`
+	Delay          int     `json:"delay"`
+	DurationAvg    float64 `json:"duration_avg"`
 	DurationStddev float64 `json:"duration_stddev"`
 
 	// Score defines the Score of the Mirror
@@ -49,7 +49,6 @@ type Mirror struct{
 	// IPV4 defines wether the Mirror has a ipv4
 	IPV4 bool `json:"ipv4"`
 
-
 	// IPV6 defines wether the Mirror has a ipv4
 	IPV6 bool `json:"ipv6"`
 
@@ -60,21 +59,21 @@ type Mirror struct{
 	//
 	// Note: arch doesn't return have a "download_rate" field, so this field doesnt have to be a pointer
 	//
-	
-	// Note: A value of zero indicates that benchmarking was skipped or failed. 
+
+	// Note: A value of zero indicates that benchmarking was skipped or failed.
 	// In such cases, this field will be ommitted when encoding a Mirror to json
-	DownloadRate float64 `json:"download_rate,omitzero"` 
+	DownloadRate float64 `json:"download_rate,omitzero"`
 }
 
 // Benchmark benchmarks [Mirror.DownloadRate] in real-time
-func (m Mirror) Benchmark(ctx context.Context, client *http.Client) (float64, error){
+func (m Mirror) Benchmark(ctx context.Context, client *http.Client) (float64, error) {
 
 	// set the url to an actual file to download
-	url := fmt.Sprintf("%s/core/os/x86_64/core.db", strings.TrimRight(m.Url, "/"),)
+	url := fmt.Sprintf("%s/core/os/x86_64/core.db", strings.TrimRight(m.Url, "/"))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 
-	if err != nil{
+	if err != nil {
 		return 0, fmt.Errorf("failed to init a request with context: %w", err)
 	}
 
@@ -82,13 +81,13 @@ func (m Mirror) Benchmark(ctx context.Context, client *http.Client) (float64, er
 
 	resp, err := client.Do(req)
 
-	if err != nil{
+	if err != nil {
 		return 0, fmt.Errorf("failed to make a get request: %w", err)
 	}
 
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK{
+	if resp.StatusCode != http.StatusOK {
 		return 0, fmt.Errorf("recieved status code '%s'", resp.Status)
 	}
 
@@ -100,7 +99,7 @@ func (m Mirror) Benchmark(ctx context.Context, client *http.Client) (float64, er
 
 	elapsedTime := time.Since(startTime).Seconds()
 
-	if elapsedTime == 0{ // this is very unlikely to happen
+	if elapsedTime == 0 { // this is very unlikely to happen
 		return 0, fmt.Errorf("invalid calculated elapsed time '%f'", elapsedTime)
 	}
 
@@ -109,55 +108,51 @@ func (m Mirror) Benchmark(ctx context.Context, client *http.Client) (float64, er
 	return downloadRate, nil
 }
 
-
 // Mirrorlist defines a slice of [Mirror]
 type Mirrorlist []Mirror
 
-
 // FilterOption specifies the filters that can be applied to a [Mirrorlist]
-type FilterOptions struct{
+type FilterOptions struct {
 
 	// Age is a duration that a [Mirror]'s last sync time must be less than or equal to
 	//
 	// Note: 0 indicates any sync time is fine
-	Age time.Duration 
+	Age time.Duration
 
 	// A list of Countries that a [Mirror] must belong to
 	//
 	// Note: an nil or an empty slice means all countries
-	Countries []string 
+	Countries []string
 
 	// Protocol that the mirror must support
 	//
 	// Note: an empty string means any protocol
 	Protocol string
 
-	// MinCompletion specfies the min number that [Mirror.Completion] must be 
+	// MinCompletion specfies the min number that [Mirror.Completion] must be
 	//
 	// The value is in precentage, e.g., 99.5 specifies 99.5%
 	MinCompletion float32
 
-	// ActiveOnly specifies mirror's that are only active 
+	// ActiveOnly specifies mirror's that are only active
 	ActiveOnly bool
 }
-
 
 // SortCriteria defines the sorting criteria of a mirrorlist
 type SortCriteria string
 
 const (
-	Age SortCriteria = "age" // sort by sync time
-	DownloadRate SortCriteria = "download-rate"  // sort by download rate
-	Score SortCriteria = "score" // sort by score
+	Age          SortCriteria = "age"           // sort by sync time
+	DownloadRate SortCriteria = "download-rate" // sort by download rate
+	Score        SortCriteria = "score"         // sort by score
 )
-
 
 // FormatOption defines the formatting of a mirrorlist
 type FormatOption string
 
 const (
 	// PacmanFormat is a [FormatOption] thats undrestandble by pacman
-	PacmanFormat FormatOption = "pacman" 
+	PacmanFormat FormatOption = "pacman"
 
 	// JsonFormat is a json [FormatOption] thats meant to be used by scripts
 	JsonFormat FormatOption = "json"
@@ -166,15 +161,15 @@ const (
 	PrettyJsonFormat FormatOption = "pretty-json"
 )
 
-// Filter filters out mirrors in [Mirrorlist] that do not meet 
+// Filter filters out mirrors in [Mirrorlist] that do not meet
 // [FilterOptions]
-func (ml Mirrorlist) Filter(filterOptions FilterOptions) Mirrorlist{
+func (ml Mirrorlist) Filter(filterOptions FilterOptions) Mirrorlist {
 
-	if len(filterOptions.Countries) != 0{
+	if len(filterOptions.Countries) != 0 {
 		// lowercase all countries
 		temp := make([]string, len(filterOptions.Countries))
 
-		for i, value := range filterOptions.Countries{
+		for i, value := range filterOptions.Countries {
 			temp[i] = strings.ToLower(value)
 		}
 
@@ -182,7 +177,7 @@ func (ml Mirrorlist) Filter(filterOptions FilterOptions) Mirrorlist{
 	}
 
 	// countryMatches is a helper for filtering mirrors based on their countries
-	countryMatches := func(mirror Mirror) bool{
+	countryMatches := func(mirror Mirror) bool {
 		countryMatches := len(filterOptions.Countries) == 0 // any country is allowed
 		countryMatches = countryMatches || slices.Contains(filterOptions.Countries, strings.ToLower(mirror.Country))
 		countryMatches = countryMatches || slices.Contains(filterOptions.Countries, strings.ToLower(mirror.CountryCode))
@@ -190,29 +185,29 @@ func (ml Mirrorlist) Filter(filterOptions FilterOptions) Mirrorlist{
 	}
 
 	var filteredMirrorlist Mirrorlist
-	
+
 	currentTime := time.Now() // calculate the current time once before the filtering begins
 
-	for _, mirror := range ml{
+	for _, mirror := range ml {
 
-		if !countryMatches(mirror){
+		if !countryMatches(mirror) {
 			continue
 		}
 
-		if filterOptions.Protocol != "" && !strings.EqualFold(mirror.Protocol, filterOptions.Protocol){
+		if filterOptions.Protocol != "" && !strings.EqualFold(mirror.Protocol, filterOptions.Protocol) {
 			continue
 		}
 
 		// this check also checks mirros with unknown sync time, e.g, if the mirror's timestamp was set to null
-		if filterOptions.Age != 0 && (mirror.LastSync.IsZero() || currentTime.Sub(mirror.LastSync) > filterOptions.Age){
+		if filterOptions.Age != 0 && (mirror.LastSync.IsZero() || currentTime.Sub(mirror.LastSync) > filterOptions.Age) {
 			continue
 		}
 
-		if minCompletion := filterOptions.MinCompletion / 100; minCompletion > mirror.Completion{
+		if minCompletion := filterOptions.MinCompletion / 100; minCompletion > mirror.Completion {
 			continue
 		}
 
-		if filterOptions.ActiveOnly && !mirror.Active{
+		if filterOptions.ActiveOnly && !mirror.Active {
 			continue
 		}
 
@@ -223,42 +218,42 @@ func (ml Mirrorlist) Filter(filterOptions FilterOptions) Mirrorlist{
 }
 
 // Sort sorts the mirrors in [Mirrorlist] based on [SortCriteria]
-func (ml Mirrorlist) Sort(criteria SortCriteria) (Mirrorlist, error){
+func (ml Mirrorlist) Sort(criteria SortCriteria) (Mirrorlist, error) {
 
 	sortedMirrorlist := slices.Clone(ml)
 
-	switch criteria { 
-		case Score:
-			slices.SortFunc(sortedMirrorlist, func(m1, m2 Mirror) int{
+	switch criteria {
+	case Score:
+		slices.SortFunc(sortedMirrorlist, func(m1, m2 Mirror) int {
 			// if m1 has a lower score, then m1 should be before m2, and vice versa
 
-				return cmp.Compare(m1.Score, m2.Score)
-			})
-		case DownloadRate:
-			slices.SortFunc(sortedMirrorlist, func(m1, m2 Mirror) int{
-				// If m1 has a higher donwload rate then, it should be before m2, and vice versa
+			return cmp.Compare(m1.Score, m2.Score)
+		})
+	case DownloadRate:
+		slices.SortFunc(sortedMirrorlist, func(m1, m2 Mirror) int {
+			// If m1 has a higher donwload rate then, it should be before m2, and vice versa
 
-				// if m2 is bigger than m1, then Compare will return a positive
-				// number, meaning that SortFunc would place m1 after m2
-				// if m1 is bigger than m2, then Compare will return a negative
-				// number, meaning that SortFunc would place m2 after m1
+			// if m2 is bigger than m1, then Compare will return a positive
+			// number, meaning that SortFunc would place m1 after m2
+			// if m1 is bigger than m2, then Compare will return a negative
+			// number, meaning that SortFunc would place m2 after m1
 
-				return cmp.Compare(m2.DownloadRate, m1.DownloadRate)
-			})
-		case Age: 
-			slices.SortFunc(sortedMirrorlist, func(m1, m2 Mirror) int{
-				// if m1 has a time that happend after m2, then m1 should be
-				// before m2, and vice versa
+			return cmp.Compare(m2.DownloadRate, m1.DownloadRate)
+		})
+	case Age:
+		slices.SortFunc(sortedMirrorlist, func(m1, m2 Mirror) int {
+			// if m1 has a time that happend after m2, then m1 should be
+			// before m2, and vice versa
 
-				// if m2 is before m1, then Compare will return a negative
-				// number, meaning that SortFunc would place m2 after m1
-				// if m2 is after than m1, then Compare will return a positive
-				// number, meaning that SortFunc would place m1 after m2
+			// if m2 is before m1, then Compare will return a negative
+			// number, meaning that SortFunc would place m2 after m1
+			// if m2 is after than m1, then Compare will return a positive
+			// number, meaning that SortFunc would place m1 after m2
 
-				return m2.LastSync.Compare(m1.LastSync)
-			})
-		default:
-			return nil, fmt.Errorf("unsupported sort criteria '%s'", criteria)
+			return m2.LastSync.Compare(m1.LastSync)
+		})
+	default:
+		return nil, fmt.Errorf("unsupported sort criteria '%s'", criteria)
 	}
 
 	return sortedMirrorlist, nil
@@ -266,36 +261,36 @@ func (ml Mirrorlist) Sort(criteria SortCriteria) (Mirrorlist, error){
 
 // Format formats a mirrorlist based on the given [FormatOption]
 // and writes the output to out
-func (ml Mirrorlist) Write(out io.Writer, formatOption FormatOption) error{
+func (ml Mirrorlist) Write(out io.Writer, formatOption FormatOption) error {
 
-	switch formatOption{
-		case PacmanFormat:
-			// we don't use goroutines because
-			// the order in which the mirrors will be writen
-			// is not deterministic; hence, the sorting order may not
-			// be preserved
+	switch formatOption {
+	case PacmanFormat:
+		// we don't use goroutines because
+		// the order in which the mirrors will be writen
+		// is not deterministic; hence, the sorting order may not
+		// be preserved
 
-			for _, mirror := range ml{
-				url := strings.TrimRight(strings.TrimSpace(mirror.Url), "/") 
-				
-				_, err := fmt.Fprintf(out, "Server = %s/$repo/os/$arch\n", url)
-				
-				if err != nil{
-					return fmt.Errorf("write mirrorlist as pacman format: %w", err)
-				}
+		for _, mirror := range ml {
+			url := strings.TrimRight(strings.TrimSpace(mirror.Url), "/")
+
+			_, err := fmt.Fprintf(out, "Server = %s/$repo/os/$arch\n", url)
+
+			if err != nil {
+				return fmt.Errorf("write mirrorlist as pacman format: %w", err)
 			}
-		case PrettyJsonFormat:
-			err := json.MarshalWrite(out, ml, jsontext.Multiline(true))
-			if err != nil{
-				return fmt.Errorf("write mirrorlist as pretty-json: %w", err)
-			}
-		case JsonFormat: 
-			err := json.MarshalWrite(out, ml)
-			if err != nil{
-				return fmt.Errorf("write mirrorlist as json: %w", err)
-			}
-		default:
-			return fmt.Errorf("unsupported format option '%s'", formatOption)
+		}
+	case PrettyJsonFormat:
+		err := json.MarshalWrite(out, ml, jsontext.Multiline(true))
+		if err != nil {
+			return fmt.Errorf("write mirrorlist as pretty-json: %w", err)
+		}
+	case JsonFormat:
+		err := json.MarshalWrite(out, ml)
+		if err != nil {
+			return fmt.Errorf("write mirrorlist as json: %w", err)
+		}
+	default:
+		return fmt.Errorf("unsupported format option '%s'", formatOption)
 	}
 
 	return nil
@@ -305,14 +300,14 @@ func (ml Mirrorlist) Write(out io.Writer, formatOption FormatOption) error{
 //
 // if n == 0, then a shallow copy of ml is returned
 // if n < 0, Limit returns an error
-func (ml Mirrorlist) Limit(n int) (Mirrorlist, error){
+func (ml Mirrorlist) Limit(n int) (Mirrorlist, error) {
 	if n < 0 {
 		return nil, errors.New("n cant not be less than zero")
 	}
 
 	// return a shallow copy for all n
 
-	if n == 0{
+	if n == 0 {
 		return slices.Clone(ml), nil
 	}
 
@@ -329,8 +324,8 @@ func (ml Mirrorlist) Limit(n int) (Mirrorlist, error){
 // include ctx.Err()
 func (ml Mirrorlist) Benchmark(ctx context.Context, client *http.Client, threads int) (Mirrorlist, []error) {
 
-	var errs []error 
-	newMl := make(Mirrorlist, 0, len(ml)) 
+	var errs []error
+	newMl := make(Mirrorlist, 0, len(ml))
 
 	if threads <= 0 {
 		errs = append(errs, errors.New("The number of specified goroutines must be greater than zero"))
@@ -338,52 +333,51 @@ func (ml Mirrorlist) Benchmark(ctx context.Context, client *http.Client, threads
 		return nil, errs
 	}
 
-	mirrorChan:= make(chan Mirror, 7)
+	mirrorChan := make(chan Mirror, 7)
 	resultChan := make(chan Mirror, 7)
 	errChan := make(chan error, 7)
 	doneChan := make(chan any)
 	var wg sync.WaitGroup
 
+	for range threads {
 
-	for range threads{
+		wg.Go(func() {
+			for {
+				select {
+				case mirror, ok := <-mirrorChan:
+					if !ok || ctx.Err() != nil {
+						// if ctx was cancelled or the channel is closed, then dont make a request
+						return
+					}
 
-		wg.Go(func(){
-			for{
-				select{
-					case mirror, ok := <- mirrorChan:
-						if !ok || ctx.Err() != nil{
-							// if ctx was cancelled or the channel is closed, then dont make a request 
+					downloadRate, err := mirror.Benchmark(ctx, client)
+
+					if err != nil {
+						if ctx.Err() != nil {
+							// error occured due to ctx being cancelled
+							// no need to report the error
 							return
 						}
+						errChan <- fmt.Errorf("mirror '%s' caused an error: %w", mirror.Url, err)
+						continue
+					}
 
-						downloadRate, err := mirror.Benchmark(ctx, client)
+					mirror.DownloadRate = downloadRate
 
-						if err != nil{
-							if ctx.Err() != nil{
-								// error occured due to ctx being cancelled
-								// no need to report the error
-								return
-							}
-							errChan <- fmt.Errorf("mirror '%s' caused an error: %w", mirror.Url, err)
-							continue
-						}
+					// no need to put this in a select statement
+					// with ctx.Done()
+					resultChan <- mirror
 
-						mirror.DownloadRate = downloadRate
-
-						// no need to put this in a select statement
-						// with ctx.Done()
-						resultChan <- mirror
-
-					case <- ctx.Done():
-						return
+				case <-ctx.Done():
+					return
 				}
 			}
 		})
 	}
 
 	// spawn an error handling goroutine
-	go func(){
-		for err := range errChan{
+	go func() {
+		for err := range errChan {
 			errs = append(errs, err)
 		}
 
@@ -391,25 +385,25 @@ func (ml Mirrorlist) Benchmark(ctx context.Context, client *http.Client, threads
 
 	}()
 
-	go func(){
-		for result := range resultChan{
+	go func() {
+		for result := range resultChan {
 			newMl = append(newMl, result)
 		}
 		doneChan <- nil
 	}()
 
-	producerLoop:
-	for i := range ml{
-		if ctx.Err() != nil{
+producerLoop:
+	for i := range ml {
+		if ctx.Err() != nil {
 			// ctx was cancelled, dont send a mirror to the channel
-			break 
+			break
 		}
 
-		select{
-			case mirrorChan <- ml[i]:
+		select {
+		case mirrorChan <- ml[i]:
 
-			case <- ctx.Done():
-				break producerLoop
+		case <-ctx.Done():
+			break producerLoop
 		}
 	}
 
@@ -420,12 +414,12 @@ func (ml Mirrorlist) Benchmark(ctx context.Context, client *http.Client, threads
 	// for the goroutines to signal their completion
 	close(errChan)
 	close(resultChan)
-	<- doneChan
-	<- doneChan
+	<-doneChan
+	<-doneChan
 
 	close(doneChan)
 
-	if err := ctx.Err(); err != nil{
+	if err := ctx.Err(); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -433,7 +427,7 @@ func (ml Mirrorlist) Benchmark(ctx context.Context, client *http.Client, threads
 }
 
 // Fetch fetches a [Mirrorlist] from Arch
-func Fetch(ctx context.Context, client *http.Client) (Mirrorlist, error){
+func Fetch(ctx context.Context, client *http.Client) (Mirrorlist, error) {
 
 	url := "https://archlinux.org/mirrors/status/json/"
 
@@ -443,15 +437,15 @@ func Fetch(ctx context.Context, client *http.Client) (Mirrorlist, error){
 		return nil, fmt.Errorf("failed to init a request with context: %w", err)
 	}
 
-	resp , err := client.Do(req)
+	resp, err := client.Do(req)
 
-	if err != nil{
+	if err != nil {
 		return nil, fmt.Errorf("failed to request mirrors from arch: %w", err)
 	}
 
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK{
+	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("recieved status code '%s'", resp.Status)
 	}
 
@@ -460,16 +454,15 @@ func Fetch(ctx context.Context, client *http.Client) (Mirrorlist, error){
 	//
 	// Note: the actual body returned by arch has other metadata
 	// about arch's own mirror sync process
-	var body struct{
+	var body struct {
 		Urls Mirrorlist `json:"urls"`
 	}
 
 	err = json.UnmarshalRead(resp.Body, &body)
 
-	if err != nil{
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse the request body: %w", err)
 	}
 
 	return body.Urls, nil
 }
-

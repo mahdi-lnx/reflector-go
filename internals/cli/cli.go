@@ -16,13 +16,13 @@ import (
 //
 // The values set to each flag on init specify the default
 // value of each flag
-type Config struct{
+type Config struct {
 	Verbose bool // increases logging verbosity
 
 	RequestTimeout time.Duration // the duration to wait before a http transaction completes
 
-	Save string // a file path to save the mirrorlist into
-	Threads int // The number of threads used for rating the download speed of the mirrors
+	Save    string // a file path to save the mirrorlist into
+	Threads int    // The number of threads used for rating the download speed of the mirrors
 
 	// specifes a sort cirteria to sort the Mirrolist by
 	//
@@ -30,7 +30,7 @@ type Config struct{
 	// 	- [mirrorlist.DownloadRate]
 	// 	- [mirrorlist.Age]
 	// 	- [mirrorlist.Score]
-	Sort mirrorlist.SortCriteria  
+	Sort mirrorlist.SortCriteria
 
 	// specifies the output format
 	//
@@ -43,7 +43,7 @@ type Config struct{
 	// the max number of enteries in the [mirrorlist.Mirrorlist]
 	//
 	// Note: 0 indicates unlimited enteries
-	Number int 
+	Number int
 
 	// NoBenchmark specifies wether a [mirrorlist.Mirrorlist.Benchmark]
 	NoBenchmark bool
@@ -51,40 +51,38 @@ type Config struct{
 	mirrorlist.FilterOptions
 }
 
-
 // A Sentinel error that indicates invalid configuration
 var ErrInvalidConfig error = errors.New("invalid configuration")
-
 
 // ConfigError represents an error
 // that was encountered when parsing
 // the args given to [Config.Parse]
-type ConfigError struct{
+type ConfigError struct {
 	strings.Builder
 	cause error
 }
 
 // Error Returns the a formated string error
-func (ce *ConfigError) Error() string{
+func (ce *ConfigError) Error() string {
 	return ce.String()
 }
 
 // Unwrap returns the cause of the ConfigError
 // resulting in the original error to be preserved
-func (ce *ConfigError) Unwrap() error{
+func (ce *ConfigError) Unwrap() error {
 	return ce.cause
 }
 
 // Parse parses args with the fields of c defining the default values
 //
 // Note: Parse is atomic, meaning that if a parse fails c will not be mutated
-func (c *Config) Parse(args []string) (error){
+func (c *Config) Parse(args []string) error {
 	flagSet := flag.NewFlagSet("reflector", flag.ContinueOnError)
 
 	// we create a temp copy so that
 	// if the parsing due to validation or some other thing,
 	// c will not be mutated
-	tempC := *c 
+	tempC := *c
 
 	// set the verbosity flag
 	flagSet.BoolVar(&tempC.Verbose, "verbose", tempC.Verbose, "Increases the logging verbosity")
@@ -99,7 +97,7 @@ func (c *Config) Parse(args []string) (error){
 	flagSet.StringVar(&tempC.Save, "save", tempC.Save, "The file path to save the output into")
 
 	// set the format flag
-	mirrorlistFormat :=  string(tempC.Format)
+	mirrorlistFormat := string(tempC.Format)
 	flagSet.StringVar(&mirrorlistFormat, "format", mirrorlistFormat, "The output format")
 
 	// set the sort flag
@@ -117,14 +115,14 @@ func (c *Config) Parse(args []string) (error){
 
 	defaultValueDiscarded := false
 
-	flagSet.Func("country", "Only return mirrors belonging to the specified country", func(arg string) error{
-		if !defaultValueDiscarded{
+	flagSet.Func("country", "Only return mirrors belonging to the specified country", func(arg string) error {
+		if !defaultValueDiscarded {
 			countries = []string{}
 			defaultValueDiscarded = true
 		}
 		arg = strings.TrimSpace(arg)
 
-		for value := range strings.SplitSeq(arg, ","){
+		for value := range strings.SplitSeq(arg, ",") {
 			countries = append(countries, strings.TrimSpace(value))
 		}
 
@@ -152,7 +150,7 @@ func (c *Config) Parse(args []string) (error){
 
 	tempC.validate(accErr)
 
-	if accErr.Len() > 0{
+	if accErr.Len() > 0 {
 		accErr.cause = ErrInvalidConfig
 		return accErr
 	}
@@ -164,33 +162,33 @@ func (c *Config) Parse(args []string) (error){
 }
 
 // validate validates the [Config]
-func (c *Config) validate(configError *ConfigError){
+func (c *Config) validate(configError *ConfigError) {
 
-	if c.Threads <= 0{
+	if c.Threads <= 0 {
 		configError.WriteString("Invalid value for option 'threads': value must be greater than 0\n")
 	}
 
-	if c.RequestTimeout <= 0{
+	if c.RequestTimeout <= 0 {
 		configError.WriteString("Invalid value for option 'request-timeout': value must be greater than 0\n")
 	}
 
-	if c.Age < 0{
+	if c.Age < 0 {
 		configError.WriteString("Invalid value for option 'age': value must be greater than or equal to 0\n")
 	}
 
-	if slices.Contains(c.Countries, ""){
+	if slices.Contains(c.Countries, "") {
 		configError.WriteString("Invalid value for option 'country': value can not be an empty string\n")
 	}
 
-	if c.Number < 0{
+	if c.Number < 0 {
 		configError.WriteString("Invalid value for option 'number': value must be greater than to or equal to 0\n")
 	}
 
-	if c.NoBenchmark && c.Sort == mirrorlist.DownloadRate{
+	if c.NoBenchmark && c.Sort == mirrorlist.DownloadRate {
 		configError.WriteString("Invalid combination for 'no-benchmark' and 'sort': cannot sort by download-rate when benchmarking is disabled\n")
 	}
 
-	if c.Format != mirrorlist.PacmanFormat && c.Format != mirrorlist.JsonFormat && c.Format != mirrorlist.PrettyJsonFormat{
+	if c.Format != mirrorlist.PacmanFormat && c.Format != mirrorlist.JsonFormat && c.Format != mirrorlist.PrettyJsonFormat {
 		fmt.Fprintf(
 			configError,
 			"Invalid value for option 'format': value must be one of '%s', '%s', or '%s'\n",
@@ -201,13 +199,12 @@ func (c *Config) validate(configError *ConfigError){
 	}
 
 	if c.Sort != mirrorlist.DownloadRate && c.Sort != mirrorlist.Score && c.Sort != mirrorlist.Age {
-			fmt.Fprintf(
-				configError, 
-				"Invalid value for option 'sort': value must be one of '%s', '%s', or '%s'\n", 
-				mirrorlist.Score,
-				mirrorlist.Age,
-				mirrorlist.DownloadRate,
-			)
+		fmt.Fprintf(
+			configError,
+			"Invalid value for option 'sort': value must be one of '%s', '%s', or '%s'\n",
+			mirrorlist.Score,
+			mirrorlist.Age,
+			mirrorlist.DownloadRate,
+		)
 	}
 }
-
