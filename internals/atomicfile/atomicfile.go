@@ -8,9 +8,9 @@ import (
 )
 
 // AtomicFile defines a temp file that can atomically replace
-// a destination file when commited
+// an original file when commited
 type AtomicFile struct{
-	// originalPath is the destination file path
+	// originalPath is the original file path
 	originalPath string
 
 	// tempPath is the temp file path
