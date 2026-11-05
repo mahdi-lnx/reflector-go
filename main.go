@@ -15,21 +15,99 @@ import (
 	"github.com/mahdi-lnx/reflector-go/internals/mirrorlist"
 )
 
-func run() error{
+// writeOutput writes mirrors to stdout or atomically saves them to a file
+func writeOutput(mirrors mirrorlist.Mirrorlist, config cli.Config, logger *slog.Logger) error {
+	if config.Save == "" {
+		// write the mirrorlist to stdout
+		return mirrors.Write(os.Stdout, config.Format)
+	}
+
+	// on a fresh installed arch system the premission mode
+	// of /etc/pacman.d/mirrorlist is 0o644
+	f, err := atomicfile.NewAtomicFile(config.Save, 0o644)
+
+	if err != nil {
+		return err
+	}
+
+	// ignore the error returned by Close for now
+	defer f.Close()
+
+	err = mirrors.Write(f, config.Format)
+
+	if err != nil {
+		return err
+	}
+
+	err = f.Commit()
+
+	if err != nil {
+		return err
+	}
+
+	logger.Info("Saved mirrorlist", "path", config.Save, "count", len(mirrors))
+
+	return nil
+}
+
+// benchmarkMirrors benchmarks the given mirrors unless benchmarking is disabled
+//
+// It logs individual benchmark failures and returns the successfully benchmarked
+// mirrors. If benchmarking is disabled, it returns the original mirrors unchanged
+//
+// It returns an error if benchmarking is interrupted via ctx or no mirrors succeed
+func benchmarkMirrors(
+	ctx context.Context,
+	client *http.Client,
+	mirrors mirrorlist.Mirrorlist,
+	config cli.Config,
+	logger *slog.Logger,
+) (mirrorlist.Mirrorlist, error) {
+	if !config.NoBenchmark {
+
+		logger.Info("Benchmarking mirrors", "count", len(mirrors), "workers", config.Threads)
+
+		benchmarkedMirrors, errs := mirrors.Benchmark(ctx, client, config.Threads)
+
+		if err := ctx.Err(); err != nil {
+			return nil, fmt.Errorf("reflector was intrupted: %w", err)
+		}
+
+		for _, err := range errs {
+			logger.Warn("Mirror benchmark failed", "error", err.Error())
+		}
+
+		if len(benchmarkedMirrors) == 0 {
+			return nil, errors.New("no successfully benchmarked mirrors")
+		}
+
+		logger.Info(
+			"Benchmarked mirrors",
+			"success", len(benchmarkedMirrors),
+			"failed", len(errs),
+		)
+
+		return benchmarkedMirrors, nil
+	}
+
+	return mirrors, nil
+}
+
+func run() error {
 
 	appConfig := cli.Config{
 		RequestTimeout: 7 * time.Second, // set default to 7 seconds
-		Threads: 47,
-		Sort: mirrorlist.DownloadRate,
-		Format: mirrorlist.PacmanFormat,
-		Protocol: "https",
-		MinCompletion: 100,
-		ActiveOnly: true,
+		Threads:        47,
+		Sort:           mirrorlist.DownloadRate,
+		Format:         mirrorlist.PacmanFormat,
+		Protocol:       "https",
+		MinCompletion:  100,
+		ActiveOnly:     true,
 	}
 
 	err := appConfig.Parse(os.Args[1:])
 
-	if err != nil{
+	if err != nil {
 		return err
 	}
 
@@ -39,20 +117,19 @@ func run() error{
 
 	ctx := context.TODO()
 
-	logHandlerOptions := &slog.HandlerOptions{ Level: slog.LevelError, }
+	logHandlerOptions := &slog.HandlerOptions{Level: slog.LevelError}
 
-	if appConfig.Verbose{
+	if appConfig.Verbose {
 		logHandlerOptions.Level = slog.LevelInfo
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, logHandlerOptions))
 
-
 	logger.Info("Fetching mirrors")
 
 	totalFetchedMirrors, err := mirrorlist.Fetch(ctx, client)
 
-	if err != nil{
+	if err != nil {
 		return err
 	}
 
@@ -62,114 +139,48 @@ func run() error{
 
 	filteredMirrors := totalFetchedMirrors.Filter(appConfig.FilterOptions)
 
-	if len(filteredMirrors) == 0{
+	if len(filteredMirrors) == 0 {
 		// no mirror passed the filter
 
 		return errors.New("no mirrors matched the specified filters")
 	}
 
 	logger.Info(
-		"Filtered mirrors", 
-		"matched", len(filteredMirrors), 
-		"excluded", len(totalFetchedMirrors) - len(filteredMirrors),
+		"Filtered mirrors",
+		"matched", len(filteredMirrors),
+		"excluded", len(totalFetchedMirrors)-len(filteredMirrors),
 	)
 
-	benchmarkedMirrors := filteredMirrors
+	processedMirrors, err := benchmarkMirrors(ctx, client, filteredMirrors, appConfig, logger)
 
-	if !appConfig.NoBenchmark{
-		//TODO: need to decide how to handle the errs if appConfig.verbosity is true
-		
-		// t := time.Now() TODO: need to remove this
-
-		logger.Info("Benchmarking mirrors", "count", len(filteredMirrors), "workers", appConfig.Threads)
-
-		result, errs := filteredMirrors.Benchmark(ctx, client, appConfig.Threads)
-
-		benchmarkedMirrors = result
-
-		// fmt.Println(time.Since(t).Seconds()) TODO: need to remove this
-
-		if err := ctx.Err(); err != nil{
-			return fmt.Errorf("reflector was intrupted: %w", err)
-		}
-
-		if len(benchmarkedMirrors) == 0{
-			return errors.New("no successfully benchmarked mirrors")
-		}
-
-		for _, err := range errs {
-			logger.Warn("Mirror Benchmark failed", "error", err.Error())
-		}
-
-		logger.Info(
-			"Benchmarked mirrors", 
-			"success", len(benchmarkedMirrors), 
-			"failed", len(errs),
-		)
+	if err != nil {
+		return err
 	}
 
 	logger.Info("Sorting mirrors", "by", appConfig.Sort)
 
-	sortedMirrors, err := benchmarkedMirrors.Sort(appConfig.Sort)
+	sortedMirrors, err := processedMirrors.Sort(appConfig.Sort)
 
-	if err != nil{
+	if err != nil {
 		return err
 	}
 
-	logger.Info("Sorted mirrors", "count", len(sortedMirrors))
-
 	finalMirrors, err := sortedMirrors.Limit(appConfig.Number)
 
-	if err != nil{
+	if err != nil {
 		return err
 	}
 
 	logger.Info("Selected mirrors", "count", len(finalMirrors))
 
-	if appConfig.Save == ""{
-		// write the mirrorlist to stdout
-		err := finalMirrors.Write(os.Stdout, appConfig.Format)
-
-		if err != nil{
-			return err
-		}
-		return nil
-	}
-
-	// on a fresh installed arch system the premission mode
-	// of /etc/pacman.d/mirrorlist is 0o644
-	f, err := atomicfile.NewAtomicFile(appConfig.Save, 0o644)
-
-	if err != nil{
-		return err
-	}
-
-	// ignore the error returned by Close for now
-	defer f.Close()
-
-	err = finalMirrors.Write(f, appConfig.Format)
-
-	if err != nil{
-		return err
-	}
-
-	err = f.Commit()
-
-	if err != nil{
-		return err
-	}
-
-	logger.Info("Saved mirrorlist", "path", appConfig.Save, "count", len(finalMirrors))
-
-	return nil
+	return writeOutput(finalMirrors, appConfig, logger)
 }
 
-
-func main(){
+func main() {
 	err := run()
 
-	if err != nil{
-		if errors.Is(err, flag.ErrHelp){
+	if err != nil {
+		if errors.Is(err, flag.ErrHelp) {
 			fmt.Print(err)
 			return
 		}
@@ -178,4 +189,3 @@ func main(){
 		os.Exit(1)
 	}
 }
-
