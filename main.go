@@ -194,8 +194,7 @@ func main() {
 	}
 
 	logger.Info(
-		"Mirrorlist generation completed", 
-		"duration", time.Since(startTime), 
+		"Mirrorlist generation completed",
+		"duration", time.Since(startTime),
 	)
 }
-
