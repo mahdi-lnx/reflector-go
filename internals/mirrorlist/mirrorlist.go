@@ -83,7 +83,7 @@ func (m Mirror) Benchmark(ctx context.Context, client *http.Client) (float64, er
 	resp, err := client.Do(req)
 
 	if err != nil{
-		return 0, fmt.Errorf("failed to make a get request to '%s': %w", m.Url, err)
+		return 0, fmt.Errorf("failed to make a get request: %w", err)
 	}
 
 	defer resp.Body.Close()
