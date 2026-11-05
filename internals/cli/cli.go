@@ -40,7 +40,7 @@ type Config struct{
 	//	- [mirrorlist.PrettyJsonFormat]
 	Format mirrorlist.FormatOption
 
-	// the number of enteries in the [mirrorlist.Mirrorlist]
+	// the max number of enteries in the [mirrorlist.Mirrorlist]
 	//
 	// Note: 0 indicates unlimited enteries
 	Number int 
