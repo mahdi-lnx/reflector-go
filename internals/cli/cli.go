@@ -21,7 +21,10 @@ type Config struct {
 
 	RequestTimeout time.Duration // the duration to wait before a http transaction completes
 
-	Save    string // a file path to save the mirrorlist into
+	// a file path to save the mirrorlist into
+	//
+	// Note: "" specifies stdout
+	Save    string 
 	Threads int    // The number of threads used for rating the download speed of the mirrors
 
 	// specifes a sort cirteria to sort the Mirrolist by
