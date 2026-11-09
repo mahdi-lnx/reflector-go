@@ -83,7 +83,7 @@ func (c *Config) Parse(args []string) error {
 	flagSet := flag.NewFlagSet("reflector", flag.ContinueOnError)
 
 	// we create a temp copy so that
-	// if the parsing due to validation or some other thing,
+	// if the parsing fails due to validation or some other thing,
 	// c will not be mutated
 	tempC := *c
 
