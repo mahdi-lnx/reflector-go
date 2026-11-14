@@ -160,76 +160,145 @@ func TestConfigValidate(t *testing.T){
 }
 
 func TestConfigParse(t *testing.T){
+
+	type TestCase struct{
+		name string
+		flags []string
+		check func (flags []string) error
+	}
+
 	t.Parallel()
 
 	t.Run("reject invalid flags", func(t *testing.T) {
 		t.Parallel()
+
+		tests := []TestCase{
+			{
+				name: "parse unknown flags",
+				flags: []string{ "--some unknown flag", "some unknown value for the unknown flag" },
+				check: func(flags []string) error{
+					config := newValidConfig()
+
+					err := config.Parse(flags)
+
+					if err == nil{
+						return errors.New("expected err to not be nil after parsing unknown flags")
+					}
+
+					if !errors.Is(nil, nil){ // TODO: match err to be of a specific type or check its unwrap
+						return fmt.Errorf("")
+					}
+
+					if defaultConfig := newValidConfig(); !reflect.DeepEqual(config, defaultConfig){
+						return fmt.Errorf("expected config to be: %+v\ngot: %+v", defaultConfig, config)
+					}
+
+					return nil
+				},
+			},
+			{
+				name: "parse invalid flags",
+				flags: []string{ 
+					"--sort", "some invalid sort criteria", 
+					"--filter", "some invalid filter criteria",
+					"--country", "2",
+					"--country", "3",
+					"--age", "-2h",
+					"--number", "0",
+					"--threads", "0",
+					"--request-timeout", "0",
+				},
+				check: func(flags []string) error{
+					config := newValidConfig()
+
+					err := config.Parse(flags)
+
+					if err == nil{
+						return errors.New("expected err to not be nil after parsing invalid a combo of flags")
+					}
+
+					if !errors.Is(nil, nil){ // TODO: match err to be of a specific type or check its unwrap
+						return fmt.Errorf("")
+					}
+
+					if defaultConfig:= newValidConfig(); !reflect.DeepEqual(config, defaultConfig){
+						return fmt.Errorf("expected config to be: %+v\ngot: %+v", defaultConfig, config)
+					}
+
+					return nil
+				},
+			},
+		}
+
+		for _, test := range tests{
+			t.Run(test.name, func(t *testing.T){
+				if err := test.check(test.flags); err != nil{
+					t.Error(err)
+				}
+			})
+		}
 	})
 
 	t.Run("parse valid flags", func (t *testing.T){
 		t.Parallel()
 
-		tests := []struct{
-			name string
-			flags []string
-			check func (flags []string) (bool, error)
-		}{
+		tests := []TestCase{
 			{
 				name: "parse --help",
-				flags: []string { "--help" },
-				check: func(flags []string) (bool, error){
+				flags: []string{ "--help" },
+				check: func(flags []string) error{
 					config := newValidConfig()
 
 					err := config.Parse(flags)
 					
 					if err == nil || !errors.Is(err, flag.ErrHelp){
-						return false, errors.New("expected some error in err's tree match flag.ErrHelp")
+						return errors.New("expected some error in err's tree match flag.ErrHelp")
 					}
 
 					if defaultConfig := newValidConfig(); !reflect.DeepEqual(config, defaultConfig){
-						return false, fmt.Errorf(
+						return fmt.Errorf(
 							"config was modified after parsing --help:\nwant%+v\ngot: %+v", 
 							defaultConfig,
 							config,
 						)
 					}
 
-					return true, nil
+					return nil
 				},
 			},
 			{
 				name: "parse default flag values",
 				flags: []string{},
-				check: func (flags []string) (bool, error){
+				check: func (flags []string) error{
 					config := newValidConfig()
 
 					err := config.Parse(flags)
 
 					if err != nil{
-						return false, fmt.Errorf("expected err to be nil, but got: %w", err)
+						return fmt.Errorf("expected err to be nil, but got: %w", err)
 					}
 
 					if defaultConfig := newValidConfig(); !reflect.DeepEqual(config, defaultConfig){
-						return false, fmt.Errorf(
+						return fmt.Errorf(
 							"config was modified after parsing default values:\nwant%+v\ngot: %+v", 
 							defaultConfig,
 							config,
 						)
 					}
 
-					return true, nil
+					return nil
 				},
 			},
 			{
 				name: "parse valid flags",
 				flags: []string{ "--country=canada,canada", "--sort", string(mirrorlist.Score), "--format", string(mirrorlist.JsonFormat), },
-				check: func(flags []string) (bool, error){
+				check: func(flags []string) error{
 					config := newValidConfig()
 
 					err := config.Parse(flags)
 
 					if err != nil{
-						return false, fmt.Errorf("expected err to be nil, but got: %w", err)
+						return fmt.Errorf("expected err to be nil, but got: %w", err)
 					}
 
 					newConfig := newValidConfig()
@@ -238,21 +307,21 @@ func TestConfigParse(t *testing.T){
 					newConfig.Format = mirrorlist.JsonFormat
 
 					if !reflect.DeepEqual(config, newConfig){
-						return false, fmt.Errorf(
+						return fmt.Errorf(
 							"parsed config does not match expected config:\nwant:%+v\ngot:%+v", 
 							newConfig, 
 							config,
 						)
 					}
 
-					return true, nil
+					return nil
 				},
 			},
 		}
 
 		for _, test := range tests{
 			t.Run(test.name, func(t *testing.T) {
-				if ok, err := test.check(test.flags); !ok{
+				if err := test.check(test.flags); err != nil{
 					t.Error(err)
 				}
 			})
