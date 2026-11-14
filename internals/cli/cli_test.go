@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"errors"
+	"flag"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -9,31 +12,31 @@ import (
 	"github.com/mahdi-lnx/reflector-go/internals/mirrorlist"
 )
 
-func TestConfigValidate(t *testing.T){
-
-	newValidConfig := func() Config{
-		return Config{
-			Save: "",
-			Verbose: false,
-			Threads: 7,
-			RequestTimeout: time.Second * 7,
-			NoBenchmark: false,
-			Sort: mirrorlist.DownloadRate,
-			Age: time.Hour * 24,
-			Countries: []string{ "canada", },
-			Format: mirrorlist.PacmanFormat,
-			Protocol: "https",
-			MinCompletion: 100,
-			ActiveOnly: true,
-		}
+// newValidConfig creates a new valid [Config]
+func newValidConfig() Config{
+	return Config{
+		Save: "",
+		Verbose: false,
+		Threads: 7,
+		RequestTimeout: time.Second * 7,
+		NoBenchmark: false,
+		Sort: mirrorlist.DownloadRate,
+		Age: time.Hour * 24,
+		Countries: []string{ "canada", },
+		Format: mirrorlist.PacmanFormat,
+		Protocol: "https",
+		MinCompletion: 100,
+		ActiveOnly: true,
 	}
+}
+
+func TestConfigValidate(t *testing.T){
 
 	t.Run("reject invalid config", func(t *testing.T) {
 		t.Parallel()
 
 		tests := []struct{
 			name string
-			config Config
 			newInvalidConfig func () Config
 			wantErrMessageToContain []string
 		}{
@@ -120,27 +123,21 @@ func TestConfigValidate(t *testing.T){
 
 				errMessage := configErr.Error()
 
-				containsFlags := func(errMessage string, flags []string) (ok bool, notContainedFlags string){
+				var missingTokens []string 
 
-					for _, flag := range flags{
-						if !strings.Contains(errMessage, flag){
-							if notContainedFlags == ""{
-								notContainedFlags = fmt.Sprintf("'%s'", flag)
-								continue
-							}
-							notContainedFlags = fmt.Sprintf("%s, '%s'", notContainedFlags, flag)
-						}
+				for _, expectedToken := range test.wantErrMessageToContain{
+					if !strings.Contains(errMessage, expectedToken){
+						missingTokens = append(missingTokens, expectedToken)
 					}
-
-					if notContainedFlags == ""{
-						return true, notContainedFlags
-					}
-
-					return false, fmt.Sprintf("[ %s ]", notContainedFlags)
 				}
-				
-				if ok, notContainedFlags := containsFlags(errMessage, test.wantErrMessageToContain); !ok{
-					t.Errorf("expected errMessage to contain flags %s, but got `%s`", notContainedFlags, errMessage)
+
+				if len(missingTokens) > 0{
+					// the errMessage did not contain an expected token
+					t.Errorf(
+						"expected errMessage to contain flags [ %s ], but got %q", 
+						strings.Join(missingTokens, ", "), 
+						errMessage,
+					)
 				}
 			})
 		}
@@ -157,12 +154,109 @@ func TestConfigValidate(t *testing.T){
 		errMessage := configErr.Error()
 
 		if errMessage != ""{
-			t.Errorf("expected errMessage to be empty but got %s", errMessage)
+			t.Errorf("expected errMessage to be empty, got %q", errMessage)
 		}
 	})
 }
 
 func TestConfigParse(t *testing.T){
-	//TODO
+	t.Parallel()
+
+	t.Run("reject invalid flags", func(t *testing.T) {
+		t.Parallel()
+	})
+
+	t.Run("parse valid flags", func (t *testing.T){
+		t.Parallel()
+
+		tests := []struct{
+			name string
+			flags []string
+			check func (flags []string) (bool, error)
+		}{
+			{
+				name: "parse --help",
+				flags: []string { "--help" },
+				check: func(flags []string) (bool, error){
+					config := newValidConfig()
+
+					err := config.Parse(flags)
+					
+					if err == nil || !errors.Is(err, flag.ErrHelp){
+						return false, errors.New("expected some error in err's tree match flag.ErrHelp")
+					}
+
+					if defaultConfig := newValidConfig(); !reflect.DeepEqual(config, defaultConfig){
+						return false, fmt.Errorf(
+							"config was modified after parsing --help:\nwant%+v\ngot: %+v", 
+							defaultConfig,
+							config,
+						)
+					}
+
+					return true, nil
+				},
+			},
+			{
+				name: "parse default flag values",
+				flags: []string{},
+				check: func (flags []string) (bool, error){
+					config := newValidConfig()
+
+					err := config.Parse(flags)
+
+					if err != nil{
+						return false, fmt.Errorf("expected err to be nil, but got: %w", err)
+					}
+
+					if defaultConfig := newValidConfig(); !reflect.DeepEqual(config, defaultConfig){
+						return false, fmt.Errorf(
+							"config was modified after parsing default values:\nwant%+v\ngot: %+v", 
+							defaultConfig,
+							config,
+						)
+					}
+
+					return true, nil
+				},
+			},
+			{
+				name: "parse valid flags",
+				flags: []string{ "--country=canada,canada", "--sort", string(mirrorlist.Score), "--format", string(mirrorlist.JsonFormat), },
+				check: func(flags []string) (bool, error){
+					config := newValidConfig()
+
+					err := config.Parse(flags)
+
+					if err != nil{
+						return false, fmt.Errorf("expected err to be nil, but got: %w", err)
+					}
+
+					newConfig := newValidConfig()
+					newConfig.Countries = []string{ "canada", "canada" }
+					newConfig.Sort = mirrorlist.Score
+					newConfig.Format = mirrorlist.JsonFormat
+
+					if !reflect.DeepEqual(config, newConfig){
+						return false, fmt.Errorf(
+							"parsed config does not match expected config:\nwant:%+v\ngot:%+v", 
+							newConfig, 
+							config,
+						)
+					}
+
+					return true, nil
+				},
+			},
+		}
+
+		for _, test := range tests{
+			t.Run(test.name, func(t *testing.T) {
+				if ok, err := test.check(test.flags); !ok{
+					t.Error(err)
+				}
+			})
+		}
+	})
 }
 
