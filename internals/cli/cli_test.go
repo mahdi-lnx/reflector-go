@@ -107,7 +107,10 @@ func TestConfigValidate(t *testing.T){
 					config.Threads = 0
 					return config
 				},
-				wantErrMessageToContain: []string{ "request-timeout", "download-rate", "no-benchmark", "sort", "format", "number" },
+				wantErrMessageToContain: []string{ 
+					"threads", "request-timeout", "download-rate", 
+					"no-benchmark", "sort", "format", "number",
+				},
 			},
 
 		}
@@ -174,7 +177,7 @@ func TestConfigParse(t *testing.T){
 
 		tests := []TestCase{
 			{
-				name: "parse unknown flags",
+				name: "reject unknown flags",
 				flags: []string{ "--some unknown flag", "some unknown value for the unknown flag" },
 				check: func(flags []string) error{
 					config := newValidConfig()
@@ -185,8 +188,8 @@ func TestConfigParse(t *testing.T){
 						return errors.New("expected err to not be nil after parsing unknown flags")
 					}
 
-					if !errors.Is(nil, nil){ // TODO: match err to be of a specific type or check its unwrap
-						return fmt.Errorf("")
+					if errors.Is(err, ErrInvalidConfig){ 
+						return fmt.Errorf("expected err's error tree to not have ErrInvalidConfig")
 					}
 
 					if defaultConfig := newValidConfig(); !reflect.DeepEqual(config, defaultConfig){
@@ -197,10 +200,124 @@ func TestConfigParse(t *testing.T){
 				},
 			},
 			{
-				name: "parse invalid flags",
+				name: "reject invalid age filtering",
+				flags: []string{ "--age", "-2h" },
+				check: func(flags []string) error{
+					config := newValidConfig()
+
+					err := config.Parse(flags)
+
+					if err == nil{
+						return errors.New("expected err to not be nil after parsing unknown flags")
+					}
+
+					if !errors.Is(err, ErrInvalidConfig){ 
+						return fmt.Errorf("expected err's error tree to have ErrInvalidConfig")
+					}
+
+					if defaultConfig := newValidConfig(); !reflect.DeepEqual(config, defaultConfig){
+						return fmt.Errorf("expected config to be: %+v\ngot: %+v", defaultConfig, config)
+					}
+
+					return nil
+				},
+			},
+			{
+				name: "reject invalid sort criteria",
+				flags: []string{ "--sort", "some invalid sort criteria" },
+				check: func(flags []string) error{
+					config := newValidConfig()
+
+					err := config.Parse(flags)
+
+					if err == nil{
+						return errors.New("expected err to not be nil after parsing unknown flags")
+					}
+
+					if !errors.Is(err, ErrInvalidConfig){ 
+						return fmt.Errorf("expected err's error tree to have ErrInvalidConfig")
+					}
+
+					if defaultConfig := newValidConfig(); !reflect.DeepEqual(config, defaultConfig){
+						return fmt.Errorf("expected config to be: %+v\ngot: %+v", defaultConfig, config)
+					}
+
+					return nil
+				},
+			},
+			{
+				name: "reject invalid limits",
+				flags: []string{ "--number", "-1" },
+				check: func(flags []string) error{
+					config := newValidConfig()
+
+					err := config.Parse(flags)
+
+					if err == nil{
+						return errors.New("expected err to not be nil after parsing unknown flags")
+					}
+
+					if !errors.Is(err, ErrInvalidConfig){ 
+						return fmt.Errorf("expected err's error tree to have ErrInvalidConfig")
+					}
+
+					if defaultConfig := newValidConfig(); !reflect.DeepEqual(config, defaultConfig){
+						return fmt.Errorf("expected config to be: %+v\ngot: %+v", defaultConfig, config)
+					}
+
+					return nil
+				},
+			},
+			{
+				name: "reject invalid limits",
+				flags: []string{ "--number", "-1" },
+				check: func(flags []string) error{
+					config := newValidConfig()
+
+					err := config.Parse(flags)
+
+					if err == nil{
+						return errors.New("expected err to not be nil after parsing unknown flags")
+					}
+
+					if !errors.Is(err, ErrInvalidConfig){ 
+						return fmt.Errorf("expected err's error tree to have ErrInvalidConfig")
+					}
+
+					if defaultConfig := newValidConfig(); !reflect.DeepEqual(config, defaultConfig){
+						return fmt.Errorf("expected config to be: %+v\ngot: %+v", defaultConfig, config)
+					}
+
+					return nil
+				},
+			},
+			{
+				name: "reject invalid threads",
+				flags: []string{ "--threads", "-1" },
+				check: func(flags []string) error{
+					config := newValidConfig()
+
+					err := config.Parse(flags)
+
+					if err == nil{
+						return errors.New("expected err to not be nil after parsing unknown flags")
+					}
+
+					if !errors.Is(err, ErrInvalidConfig){ 
+						return fmt.Errorf("expected err's error tree to have ErrInvalidConfig")
+					}
+
+					if defaultConfig := newValidConfig(); !reflect.DeepEqual(config, defaultConfig){
+						return fmt.Errorf("expected config to be: %+v\ngot: %+v", defaultConfig, config)
+					}
+
+					return nil
+				},
+			},
+			{
+				name: "reject invalid combonations of flags",
 				flags: []string{ 
 					"--sort", "some invalid sort criteria", 
-					"--filter", "some invalid filter criteria",
 					"--country", "2",
 					"--country", "3",
 					"--age", "-2h",
@@ -217,8 +334,8 @@ func TestConfigParse(t *testing.T){
 						return errors.New("expected err to not be nil after parsing invalid a combo of flags")
 					}
 
-					if !errors.Is(nil, nil){ // TODO: match err to be of a specific type or check its unwrap
-						return fmt.Errorf("")
+					if !errors.Is(err, ErrInvalidConfig){ 
+						return fmt.Errorf("expected err's error tree to contain the ErrInvalidConfig sentinel error")
 					}
 
 					if defaultConfig:= newValidConfig(); !reflect.DeepEqual(config, defaultConfig){
@@ -267,7 +384,7 @@ func TestConfigParse(t *testing.T){
 				},
 			},
 			{
-				name: "parse default flag values",
+				name: "accept default flag values",
 				flags: []string{},
 				check: func (flags []string) error{
 					config := newValidConfig()
@@ -290,7 +407,7 @@ func TestConfigParse(t *testing.T){
 				},
 			},
 			{
-				name: "parse valid flags",
+				name: "accept valid flags",
 				flags: []string{ "--country=canada,canada", "--sort", string(mirrorlist.Score), "--format", string(mirrorlist.JsonFormat), },
 				check: func(flags []string) error{
 					config := newValidConfig()
