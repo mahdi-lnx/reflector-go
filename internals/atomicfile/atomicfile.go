@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 )
 
+// ErrCommit indicates a specific error from [AtomicFile.Commit]
+var ErrCommit error = errors.New("the atomic file is closed")
+
 // AtomicFile defines a temp file that can atomically replace
 // an original file when commited
 type AtomicFile struct {
@@ -35,7 +38,7 @@ func (af *AtomicFile) Write(b []byte) (int, error) {
 // regardless of wether Commit succeeded or not
 func (af *AtomicFile) Commit() error {
 	if af.file == nil {
-		return errors.New("the atomic file is closed")
+		return ErrCommit
 	}
 
 	err := af.file.Sync()
