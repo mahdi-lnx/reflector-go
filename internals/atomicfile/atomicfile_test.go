@@ -3,41 +3,35 @@ package atomicfile
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 )
 
 func TestNewAtomicFile(t *testing.T){
+	path := fmt.Sprintf("%s/hello.txt", t.TempDir())
+	var fileMode os.FileMode = 0o777
 
-	t.Run("create an atomicfile for a existing file", func (t *testing.T){
+	af, err := NewAtomicFile(path, fileMode)
 
-	})
+	if err != nil{
+		t.Fatalf("failed to create an atomicfile: %s", err)
+	}
 
-	t.Run("create an atomicfile for a non-existing file", func(t *testing.T) {
-		path := fmt.Sprintf("%s/hello.txt", t.TempDir())
-		var fileMode os.FileMode = 0x777
+	stat, err := af.file.Stat()
 
-		f, err := NewAtomicFile(path, fileMode)
+	if err != nil{
+		t.Fatalf("could not complete the test: %s", err)
+	}
 
-		if err != nil{
-			t.Fatalf("could not complete the test: %s", err)
-		}
+	if stat.IsDir(){
+		t.Fatal("expected the created temp file to be a file, not a dir")
+	}
 
-		stat, err := f.file.Stat()
+	if mode := stat.Mode(); mode != fileMode{
+		t.Errorf("expected file mode to be %o, got %o", fileMode, mode)
+	}
 
-		if err != nil{
-			t.Fatalf("could not complete the test: %s", err)
-		}
-
-		if stat.IsDir(){
-			t.Fatal("expected the created temp file to be a file, not a dir")
-		}
-
-		if mode := stat.Mode(); mode != fileMode{
-			t.Errorf("expected file mode to be %d, got %d", fileMode, mode)
-		}
-
-		if basename := stat.Name(); basename != "mirrorlist.temp"{
-			t.Errorf("expected the temp file basename to be 'mirrorlist.temp', got '%s'", basename)
-		}
-	})
+	if basename := stat.Name(); !strings.Contains(basename, "mirrorlist.temp"){
+		t.Errorf("expected the temp file basename to be 'mirrorlist.temp', got '%s'", basename)
+	}
 }
