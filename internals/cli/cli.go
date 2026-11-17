@@ -24,8 +24,8 @@ type Config struct {
 	// a file path to save the mirrorlist into
 	//
 	// Note: "" specifies stdout
-	Save    string 
-	Threads int    // The number of threads used for rating the download speed of the mirrors
+	Save    string
+	Threads int // The number of threads used for rating the download speed of the mirrors
 
 	// specifes a sort cirteria to sort the Mirrolist by
 	//

@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func createTempFile(t *testing.T) (path string, fileMode os.FileMode){
+func createTempFile(t *testing.T) (path string, fileMode os.FileMode) {
 	t.Helper()
 
 	path = filepath.Join(t.TempDir(), "hello.txt")
@@ -18,7 +18,7 @@ func createTempFile(t *testing.T) (path string, fileMode os.FileMode){
 	return path, fileMode
 }
 
-func writeTestData(f io.Writer, t *testing.T) string{
+func writeTestData(f io.Writer, t *testing.T) string {
 	t.Helper()
 
 	data := "some data"
@@ -36,12 +36,12 @@ func writeTestData(f io.Writer, t *testing.T) string{
 	return data
 }
 
-func TestNewAtomicFile(t *testing.T){
+func TestNewAtomicFile(t *testing.T) {
 	path, fileMode := createTempFile(t)
 
 	af, err := NewAtomicFile(path, fileMode)
 
-	if err != nil{
+	if err != nil {
 		t.Fatalf("failed to create an atomicfile: %v", err)
 	}
 
@@ -49,29 +49,29 @@ func TestNewAtomicFile(t *testing.T){
 
 	stat, err := af.file.Stat()
 
-	if err != nil{
+	if err != nil {
 		t.Fatalf("could not complete the test: %v", err)
 	}
 
-	if stat.IsDir(){
+	if stat.IsDir() {
 		t.Fatal("expected the created temp file to be a file, not a dir")
 	}
 
-	if mode := stat.Mode(); mode != fileMode{
+	if mode := stat.Mode(); mode != fileMode {
 		t.Errorf("expected file mode to be %o, got %o", fileMode, mode)
 	}
 
-	if basename := stat.Name(); !strings.HasPrefix(basename, "mirrorlist.temp"){
+	if basename := stat.Name(); !strings.HasPrefix(basename, "mirrorlist.temp") {
 		t.Errorf("expected the temp file basename to be 'mirrorlist.temp', got '%s'", basename)
 	}
 }
 
-func TestAtomicFileWrite(t *testing.T){
+func TestAtomicFileWrite(t *testing.T) {
 	path, fileMode := createTempFile(t)
 
 	af, err := NewAtomicFile(path, fileMode)
 
-	if err != nil{
+	if err != nil {
 		t.Fatalf("failed to create an atomicfile: %v", err)
 	}
 
@@ -80,42 +80,42 @@ func TestAtomicFileWrite(t *testing.T){
 	writeTestData(af, t)
 }
 
-func TestAtomicFileClose(t *testing.T){
+func TestAtomicFileClose(t *testing.T) {
 	path, fileMode := createTempFile(t)
 
 	af, err := NewAtomicFile(path, fileMode)
 
-	if err != nil{
+	if err != nil {
 		t.Fatalf("failed to create an atomicfile: %v", err)
 	}
 
 	err = af.Close()
 
-	if err != nil{
+	if err != nil {
 		t.Fatalf("failed to close a non-closed atomicfile: %v", err)
 	}
 
 	err = af.Close()
 
-	if err != nil{
+	if err != nil {
 		t.Fatalf("failed to close a closed atomicfile: %v", err)
 	}
 
 	_, err = os.Stat(af.tempPath)
 
-	if !errors.Is(err, os.ErrNotExist){
+	if !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("expected temp file %s to be removed, but stat returned: %v", af.tempPath, err)
 	}
 }
 
-func TestAtomicFileCommit(t *testing.T){
+func TestAtomicFileCommit(t *testing.T) {
 
-	commitAtomicFile := func(path string, fileMode os.FileMode, t *testing.T){
+	commitAtomicFile := func(path string, fileMode os.FileMode, t *testing.T) {
 		t.Helper()
 
 		af, err := NewAtomicFile(path, fileMode)
 
-		if err != nil{
+		if err != nil {
 			t.Fatalf("failed to create an atomicfile: %v", err)
 		}
 
@@ -131,40 +131,39 @@ func TestAtomicFileCommit(t *testing.T){
 
 		err = af.Commit()
 
-		if !errors.Is(err, ErrCommit){
+		if !errors.Is(err, ErrCommit) {
 			t.Fatalf("expected Commit to return the ErrCommit sentinel, but got: %v", err)
 		}
 
 		_, err = os.Stat(af.tempPath)
 
-		if !errors.Is(err, os.ErrNotExist){
+		if !errors.Is(err, os.ErrNotExist) {
 			t.Fatalf("expected temp file %s to be removed, but stat returned: %v", af.tempPath, err)
 		}
 
 		content, err := os.ReadFile(path)
 
-		if err != nil{
+		if err != nil {
 			t.Fatalf("failed to read the contents of %s: %v", path, err)
 		}
 
-		if content := string(content); content != data{
+		if content := string(content); content != data {
 			t.Fatalf("expected %s content '%s' to be '%s'", path, content, data)
 		}
 	}
 
-	t.Run("commit non-existing file", func(t *testing.T){
+	t.Run("commit non-existing file", func(t *testing.T) {
 		path, fileMode := createTempFile(t)
 		commitAtomicFile(path, fileMode, t)
 	})
 
-	t.Run("commit existing file", func(t *testing.T){
+	t.Run("commit existing file", func(t *testing.T) {
 		path, fileMode := createTempFile(t)
 
-		if err := os.WriteFile(path, []byte("some original data"), fileMode); err != nil{
+		if err := os.WriteFile(path, []byte("some original data"), fileMode); err != nil {
 			t.Fatalf("failed to create and write some original content to '%s': %v", path, err)
 		}
 
 		commitAtomicFile(path, fileMode, t)
 	})
 }
-
