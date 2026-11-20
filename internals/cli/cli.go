@@ -118,11 +118,20 @@ func (c *Config) Parse(args []string) error {
 	defaultValueDiscarded := false
 
 	flagSet.Func("country", "Only return mirrors belonging to the specified country", func(arg string) error {
-		if !defaultValueDiscarded {
+		arg = strings.TrimSpace(arg)
+
+		// if the default values are not discarded or arg is an empty string
+		// we discard all values in the countries slice
+
+		if !defaultValueDiscarded || arg == "" {
 			countries = countries[:0] // take an empty slice out the countries slice
 			defaultValueDiscarded = true
 		}
-		arg = strings.TrimSpace(arg)
+
+		if arg == "" {
+			// skip the loop if arg is an empty string
+			return nil
+		}
 
 		for value := range strings.SplitSeq(arg, ",") {
 
