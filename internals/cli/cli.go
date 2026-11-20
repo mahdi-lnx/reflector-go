@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
@@ -120,13 +119,20 @@ func (c *Config) Parse(args []string) error {
 
 	flagSet.Func("country", "Only return mirrors belonging to the specified country", func(arg string) error {
 		if !defaultValueDiscarded {
-			countries = []string{}
+			countries = countries[:0] // take an empty slice out the countries slice
 			defaultValueDiscarded = true
 		}
 		arg = strings.TrimSpace(arg)
 
 		for value := range strings.SplitSeq(arg, ",") {
-			countries = append(countries, strings.TrimSpace(value))
+
+			value = strings.TrimSpace(value)
+
+			if value == "" {
+				return errors.New("malformed country list")
+			}
+
+			countries = append(countries, value)
 		}
 
 		return nil
@@ -177,10 +183,6 @@ func (c *Config) validate(configError *ConfigError) {
 
 	if c.Age < 0 {
 		configError.WriteString("Invalid value for option 'age': value must be greater than or equal to 0\n")
-	}
-
-	if slices.Contains(c.Countries, "") {
-		configError.WriteString("Invalid value for option 'country': value can not be an empty string\n")
 	}
 
 	if c.Number < 0 {
