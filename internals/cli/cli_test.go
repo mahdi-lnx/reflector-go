@@ -268,19 +268,19 @@ func TestConfigParse(t *testing.T) {
 				},
 			},
 			{
-				name:  "reject invalid limits",
-				flags: []string{"--number", "-1"},
+				name:  "reject malformed country list",
+				flags: []string{"--country=some-country,,another-country,"},
 				check: func(flags []string) error {
 					config := newValidConfig()
 
 					err := config.Parse(flags)
 
 					if err == nil {
-						return errors.New("expected err to not be nil after parsing unknown flags")
+						return errors.New("expected err to not be nil after parsing malformed country list")
 					}
 
-					if !errors.Is(err, ErrInvalidConfig) {
-						return fmt.Errorf("expected err's error tree to have ErrInvalidConfig")
+					if errors.Is(err, ErrInvalidConfig) {
+						return fmt.Errorf("expected err to be a parsing err, got a validation error: %w", err)
 					}
 
 					if defaultConfig := newValidConfig(); !reflect.DeepEqual(config, defaultConfig) {
@@ -398,6 +398,32 @@ func TestConfigParse(t *testing.T) {
 						return fmt.Errorf(
 							"config was modified after parsing default values:\nwant%+v\ngot: %+v",
 							defaultConfig,
+							config,
+						)
+					}
+
+					return nil
+				},
+			},
+			{
+				name:  "clear default countries",
+				flags: []string{"--country=", "--country", " "},
+				check: func(flags []string) error {
+					config := newValidConfig()
+
+					err := config.Parse(flags)
+
+					if err != nil {
+						return fmt.Errorf("expected err to be nil, but got: %w", err)
+					}
+
+					newConfig := newValidConfig()
+					newConfig.Countries = []string{}
+
+					if !reflect.DeepEqual(config, newConfig) {
+						return fmt.Errorf(
+							"parsed config does not match expected config:\nwant:%+v\ngot:%+v",
+							newConfig,
 							config,
 						)
 					}

@@ -115,7 +115,7 @@ func (c *Config) Parse(args []string) error {
 	countries := make([]string, len(tempC.Countries))
 	copy(countries, tempC.Countries)
 
-	defaultValueDiscarded := false
+	defaultValueDiscarded := false // used to indicate if the default values of tempC.Countires are discarded or not
 
 	flagSet.Func("country", "Only return mirrors belonging to the specified country", func(arg string) error {
 		arg = strings.TrimSpace(arg)
