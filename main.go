@@ -168,7 +168,7 @@ func main() {
 			return
 		}
 
-		fmt.Fprintln(os.Stderr, err.Error())
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
@@ -178,18 +178,12 @@ func main() {
 
 	ctx := context.TODO()
 
-	logHandlerOptions := &slog.HandlerOptions{Level: slog.LevelError}
-
-	if appConfig.Verbose {
-		logHandlerOptions.Level = slog.LevelInfo
-	}
-
-	logger := slog.New(slog.NewTextHandler(os.Stderr, logHandlerOptions))
+	logger := newAppLogger(appConfig.Verbose)
 
 	err = run(ctx, client, appConfig, logger)
 
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
