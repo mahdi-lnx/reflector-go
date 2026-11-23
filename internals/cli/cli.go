@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"math"
-	"slices"
 	"strings"
 	"time"
 
@@ -80,6 +79,8 @@ func (ce *ConfigError) Unwrap() error {
 // MultiValueFlag defines a flag that can have multiple values
 type MultiValueFlag[T ~string] struct {
 	// defaultValues defines the the default values of the flag
+	//
+	// defaultValues will never be mutated
 	defaultValues []T
 
 	// newValues defines the parsed flag values provided by the user
@@ -116,16 +117,13 @@ func (mvf *MultiValueFlag[T]) Set(arg string) error {
 	// if we encounter a standalone (e.g., --flagName all) or encounter
 	// a comma seperated value that contains all (e.g., --flagName someValue,all)
 
-	if !mvf.defaultValueDiscarded || arg == "all" {
+	if !mvf.defaultValueDiscarded{
 		mvf.defaultValueDiscarded = true
-
-		// weather defaultValue was discareded or all was provided
-		// we will set MultiValueFlag.newValues to a nil slice
-		mvf.newValues = nil
 	}
 
 	if arg == "all" {
 		// skip the loop
+		mvf.newValues = nil
 		return nil
 	}
 
@@ -167,8 +165,6 @@ func (c *Config) Parse(args []string) error {
 	// if the parsing fails due to validation or some other thing,
 	// c will not be mutated
 	tempC := *c
-	tempC.Countries = slices.Clone(c.Countries)
-	tempC.Protocols = slices.Clone(c.Protocols)
 
 	// set the verbosity flag
 	flagSet.BoolVar(&tempC.Verbose, "verbose", tempC.Verbose, "Increases the logging verbosity")
