@@ -162,6 +162,12 @@ func (c *Config) Parse(args []string) error {
 		return accErr
 	}
 
+	if flagSet.NArg() > 0 {
+		fmt.Fprintf(accErr, "unexpected positional args: %v\n", flagSet.Args())
+		accErr.cause = ErrInvalidConfig
+		return accErr
+	}
+
 	// update tempC.Sort and tempC.Format
 	tempC.Sort = mirrorlist.SortCriteria(sortCriteria)
 	tempC.Format = mirrorlist.FormatOption(mirrorlistFormat)

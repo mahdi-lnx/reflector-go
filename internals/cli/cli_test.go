@@ -289,6 +289,52 @@ func TestConfigParse(t *testing.T) {
 				},
 			},
 			{
+				name:  "reject positional args",
+				flags: []string{"2", "some word"},
+				check: func(flags []string) error {
+					config := newValidConfig()
+
+					err := config.Parse(flags)
+
+					if err == nil {
+						return errors.New("expected err to not be nil after parsing an invalid --number")
+					}
+
+					if !errors.Is(err, ErrInvalidConfig) {
+						return fmt.Errorf("expected err's error tree to have ErrInvalidConfig")
+					}
+
+					if defaultConfig := newValidConfig(); !reflect.DeepEqual(config, defaultConfig) {
+						return fmt.Errorf("expected config to be: %+v\ngot: %+v", defaultConfig, config)
+					}
+
+					return nil
+				},
+			},
+			{
+				name:  "reject positional args after --",
+				flags: []string{"--number", "1", "--", "2", "some word"},
+				check: func(flags []string) error {
+					config := newValidConfig()
+
+					err := config.Parse(flags)
+
+					if err == nil {
+						return errors.New("expected err to not be nil after parsing an invalid --number")
+					}
+
+					if !errors.Is(err, ErrInvalidConfig) {
+						return fmt.Errorf("expected err's error tree to have ErrInvalidConfig")
+					}
+
+					if defaultConfig := newValidConfig(); !reflect.DeepEqual(config, defaultConfig) {
+						return fmt.Errorf("expected config to be: %+v\ngot: %+v", defaultConfig, config)
+					}
+
+					return nil
+				},
+			},
+			{
 				name:  "reject invalid limits",
 				flags: []string{"--number", "-1"},
 				check: func(flags []string) error {
