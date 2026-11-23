@@ -27,7 +27,7 @@ type Mirror struct {
 	// LastSync defines the datetime that the mirror was last synced in zulu time
 	LastSync time.Time `json:"last_sync"`
 
-	Completion     float32 `json:"completion_pct"`
+	Completion     float64 `json:"completion_pct"`
 	Delay          int     `json:"delay"`
 	DurationAvg    float64 `json:"duration_avg"`
 	DurationStddev float64 `json:"duration_stddev"`
@@ -132,7 +132,7 @@ type FilterOptions struct {
 	// MinCompletion specfies the min number that [Mirror.Completion] must be
 	//
 	// The value is in precentage, e.g., 99.5 specifies 99.5%
-	MinCompletion float32
+	MinCompletion float64
 
 	// ActiveOnly specifies mirror's that are only active
 	ActiveOnly bool
