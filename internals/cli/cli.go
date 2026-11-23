@@ -77,6 +77,86 @@ func (ce *ConfigError) Unwrap() error {
 	return ce.cause
 }
 
+// MultiValueFlag defines a flag that can have multiple values
+type MultiValueFlag[T ~string] struct {
+	// defaultValues defines the the default values of the flag
+	defaultValues []T
+
+	// newValues defines the parsed flag values provided by the user
+	newValues []T
+
+	// flagName defines the flag's name
+	flagName string
+
+	// defaultValueDiscarded is an internal state flag to indicate weather
+	// defaultValues should be discarded
+	defaultValueDiscarded bool
+}
+
+// String returns the default value of the MultiValueFlag as
+// a comma seperated value string
+func (mvf *MultiValueFlag[T]) String() string {
+	defaultValues := make([]string, len(mvf.defaultValues))
+
+	for i, value := range mvf.defaultValues {
+		defaultValues[i] = string(value)
+	}
+
+	return strings.Join(defaultValues, ", ")
+}
+
+// Set sets a new flag value
+func (mvf *MultiValueFlag[T]) Set(arg string) error {
+	arg = strings.TrimSpace(arg)
+
+	// [strings.ToLower] is used here because the "enum" constants in [mirrorlist] are all lowercased
+	arg = strings.ToLower(arg)
+
+	// for this function we will set mvf.newValues to a nil slice
+	// if we encounter a standalone (e.g., --flagName all) or encounter
+	// a comma seperated value that contains all (e.g., --flagName someValue,all)
+
+	if !mvf.defaultValueDiscarded || arg == "all" {
+		mvf.defaultValueDiscarded = true
+
+		// weather defaultValue was discareded or all was provided
+		// we will set MultiValueFlag.newValues to a nil slice
+		mvf.newValues = nil
+	}
+
+	if arg == "all" {
+		// skip the loop
+		return nil
+	}
+
+	for _, value := range strings.Split(arg, ",") {
+		value = strings.TrimSpace(value)
+
+		if value == "all" {
+			// update newValues to an nil slice
+			mvf.newValues = nil
+			continue
+		}
+
+		if value == "" {
+			return fmt.Errorf("malformed %s list", mvf.flagName)
+		}
+
+		mvf.newValues = append(mvf.newValues, T(value))
+	}
+
+	return nil
+}
+
+// GetFinalFlagValues returns the final values for the MultiValueFlag
+func (mvf *MultiValueFlag[T]) GetFinalFlagValues() []T {
+	if mvf.defaultValueDiscarded {
+		return mvf.newValues
+	}
+
+	return mvf.defaultValues
+}
+
 // Parse parses args with the fields of c defining the default values
 //
 // Note: Parse is atomic, meaning that if a parse fails c will not be mutated
@@ -88,6 +168,7 @@ func (c *Config) Parse(args []string) error {
 	// c will not be mutated
 	tempC := *c
 	tempC.Countries = slices.Clone(c.Countries)
+	tempC.Protocols = slices.Clone(c.Protocols)
 
 	// set the verbosity flag
 	flagSet.BoolVar(&tempC.Verbose, "verbose", tempC.Verbose, "Increases the logging verbosity")
@@ -114,37 +195,11 @@ func (c *Config) Parse(args []string) error {
 
 	// set the filtering flags
 
-	defaultValueDiscarded := false // used to indicate if the default values of tempC.Countires are discarded or not
+	countryFlag := &MultiValueFlag[string]{defaultValues: tempC.Countries, flagName: "country"}
+	flagSet.Var(countryFlag, "country", "Only return mirrors belonging to the specified country")
 
-	flagSet.Func("country", "Only return mirrors belonging to the specified country", func(arg string) error {
-		arg = strings.TrimSpace(arg)
-
-		// if the default values are not discarded or arg is an empty string
-		// we discard all values in the countries slice
-
-		if !defaultValueDiscarded || arg == "" {
-			tempC.Countries = tempC.Countries[:0] // take an empty slice out the countries slice
-			defaultValueDiscarded = true
-		}
-
-		if arg == "" {
-			// skip the loop if arg is an empty string
-			return nil
-		}
-
-		for value := range strings.SplitSeq(arg, ",") {
-
-			value = strings.TrimSpace(value)
-
-			if value == "" {
-				return errors.New("malformed country list")
-			}
-
-			tempC.Countries = append(tempC.Countries, value)
-		}
-
-		return nil
-	})
+	protocolFlag := &MultiValueFlag[mirrorlist.ProtocolOption]{defaultValues: tempC.Protocols, flagName: "protocol"}
+	flagSet.Var(protocolFlag, "protocol", "Only return mirrors belonging to the specified protocol")
 
 	flagSet.DurationVar(&tempC.Age, "age", tempC.Age, "Only return mirrors that have synced at least in the last specified hours")
 	flagSet.IntVar(&tempC.Number, "number", tempC.Number, "Only return at most n mirrors")
@@ -168,9 +223,12 @@ func (c *Config) Parse(args []string) error {
 		return accErr
 	}
 
-	// update tempC.Sort and tempC.Format
-	tempC.Sort = mirrorlist.SortCriteria(sortCriteria)
-	tempC.Format = mirrorlist.FormatOption(mirrorlistFormat)
+	// update tempC.Sort, tempC.Format, tempC.Protocols, and tempC.Countries
+	// [strings.ToLower] is used here because the "enum" constants in [mirrorlist] are all lowercased
+	tempC.Sort = mirrorlist.SortCriteria(strings.ToLower(sortCriteria))
+	tempC.Format = mirrorlist.FormatOption(strings.ToLower(mirrorlistFormat))
+	tempC.Protocols = protocolFlag.GetFinalFlagValues()
+	tempC.Countries = countryFlag.GetFinalFlagValues()
 
 	tempC.validate(accErr)
 
@@ -230,5 +288,20 @@ func (c *Config) validate(configError *ConfigError) {
 			mirrorlist.Age,
 			mirrorlist.DownloadRate,
 		)
+	}
+
+	// validate [Config.Protocols]
+
+	for _, protocol := range c.Protocols {
+		if protocol != mirrorlist.HTTPSProtocol && protocol != mirrorlist.HTTPProtocol {
+			fmt.Fprintf(
+				configError,
+				"Invalid value for option 'protocol': value must be '%s' or '%s'\n",
+				mirrorlist.HTTPSProtocol,
+				mirrorlist.HTTPProtocol,
+			)
+
+			return
+		}
 	}
 }

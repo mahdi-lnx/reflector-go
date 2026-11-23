@@ -25,7 +25,7 @@ func newValidConfig() Config {
 		Age:            time.Hour * 24,
 		Countries:      []string{"canada"},
 		Format:         mirrorlist.PacmanFormat,
-		Protocol:       "https",
+		Protocols:      []mirrorlist.ProtocolOption{mirrorlist.HTTPSProtocol},
 		MinCompletion:  100,
 		ActiveOnly:     true,
 	}
@@ -63,7 +63,7 @@ func TestConfigValidate(t *testing.T) {
 				name: "reject invalid sort criteria",
 				newInvalidConfig: func() Config {
 					config := newValidConfig()
-					config.Sort = "some invalid sort criteria"
+					config.Sort = mirrorlist.SortCriteria((strings.ToUpper(string(mirrorlist.DownloadRate)))) // case-sensitivity
 					return config
 				},
 				wantErrMessageToContain: []string{"sort"},
@@ -72,7 +72,7 @@ func TestConfigValidate(t *testing.T) {
 				name: "reject invalid output format",
 				newInvalidConfig: func() Config {
 					config := newValidConfig()
-					config.Format = "some invalid output format"
+					config.Format = mirrorlist.FormatOption(strings.ToUpper(string(mirrorlist.JsonFormat))) // case-sensitivity
 					return config
 				},
 				wantErrMessageToContain: []string{"format"},
@@ -115,6 +115,15 @@ func TestConfigValidate(t *testing.T) {
 				wantErrMessageToContain: []string{"min-completion"},
 			},
 			{
+				name: "reject invalid protocols",
+				newInvalidConfig: func() Config {
+					config := newValidConfig()
+					config.Protocols[0] = "rsync"
+					return config
+				},
+				wantErrMessageToContain: []string{"protocol"},
+			},
+			{
 				name: "reject multiple invalid flags",
 				newInvalidConfig: func() Config {
 					config := newValidConfig()
@@ -124,13 +133,14 @@ func TestConfigValidate(t *testing.T) {
 					config.Number = -1
 					config.RequestTimeout = -1
 					config.MinCompletion = math.NaN()
+					config.Protocols[0] = "HTTPS"
 					config.Threads = 0
 					return config
 				},
 				wantErrMessageToContain: []string{
 					"threads", "request-timeout", "download-rate",
 					"no-benchmark", "sort", "format", "number",
-					"min-completion",
+					"min-completion", "protocol",
 				},
 			},
 		}
@@ -335,6 +345,52 @@ func TestConfigParse(t *testing.T) {
 				},
 			},
 			{
+				name:  "reject malformed protocols",
+				flags: []string{"--protocol", "http,"},
+				check: func(flags []string) error {
+					config := newValidConfig()
+
+					err := config.Parse(flags)
+
+					if err == nil {
+						return errors.New("expected err to not be nil after parsing a malformed --protocol")
+					}
+
+					if errors.Is(err, ErrInvalidConfig) {
+						return fmt.Errorf("expected err to be a parsing err, got a validation error: %w", err)
+					}
+
+					if defaultConfig := newValidConfig(); !reflect.DeepEqual(config, defaultConfig) {
+						return fmt.Errorf("expected config to be: %+v\ngot: %+v", defaultConfig, config)
+					}
+
+					return nil
+				},
+			},
+			{
+				name:  "reject invalid protocols",
+				flags: []string{"--protocol", "http,rsync"},
+				check: func(flags []string) error {
+					config := newValidConfig()
+
+					err := config.Parse(flags)
+
+					if err == nil {
+						return errors.New("expected err to not be nil after parsing an invalid --protocol")
+					}
+
+					if !errors.Is(err, ErrInvalidConfig) {
+						return fmt.Errorf("expected err's error tree to have ErrInvalidConfig")
+					}
+
+					if defaultConfig := newValidConfig(); !reflect.DeepEqual(config, defaultConfig) {
+						return fmt.Errorf("expected config to be: %+v\ngot: %+v", defaultConfig, config)
+					}
+
+					return nil
+				},
+			},
+			{
 				name:  "reject invalid limits",
 				flags: []string{"--number", "-1"},
 				check: func(flags []string) error {
@@ -414,6 +470,7 @@ func TestConfigParse(t *testing.T) {
 					"--number", "0",
 					"--threads", "0",
 					"--request-timeout", "0",
+					"--protocol", "all,rsync",
 				},
 				check: func(flags []string) error {
 					config := newValidConfig()
@@ -497,8 +554,8 @@ func TestConfigParse(t *testing.T) {
 				},
 			},
 			{
-				name:  "clear default countries",
-				flags: []string{"--country=", "--country", " "},
+				name:  "clear default protocols",
+				flags: []string{"--protocol", "ALL"},
 				check: func(flags []string) error {
 					config := newValidConfig()
 
@@ -509,7 +566,7 @@ func TestConfigParse(t *testing.T) {
 					}
 
 					newConfig := newValidConfig()
-					newConfig.Countries = []string{}
+					newConfig.Protocols = nil
 
 					if !reflect.DeepEqual(config, newConfig) {
 						return fmt.Errorf(
@@ -523,8 +580,39 @@ func TestConfigParse(t *testing.T) {
 				},
 			},
 			{
-				name:  "accept valid flags",
-				flags: []string{"--country=canada,canada", "--sort", string(mirrorlist.Score), "--format", string(mirrorlist.JsonFormat)},
+				name:  "clear default countries",
+				flags: []string{"--country", "ALL"},
+				check: func(flags []string) error {
+					config := newValidConfig()
+
+					err := config.Parse(flags)
+
+					if err != nil {
+						return fmt.Errorf("expected err to be nil, but got: %w", err)
+					}
+
+					newConfig := newValidConfig()
+					newConfig.Countries = nil
+
+					if !reflect.DeepEqual(config, newConfig) {
+						return fmt.Errorf(
+							"parsed config does not match expected config:\nwant:%+v\ngot:%+v",
+							newConfig,
+							config,
+						)
+					}
+
+					return nil
+				},
+			},
+			{
+				name: "accept valid flags",
+				flags: []string{
+					"--country=canada,canada",
+					"--sort", strings.ToUpper(string(mirrorlist.Score)),
+					"--format", strings.ToUpper(string(mirrorlist.JsonFormat)),
+					"--protocol", "http,all",
+				},
 				check: func(flags []string) error {
 					config := newValidConfig()
 
@@ -537,6 +625,7 @@ func TestConfigParse(t *testing.T) {
 					newConfig := newValidConfig()
 					newConfig.Countries = []string{"canada", "canada"}
 					newConfig.Sort = mirrorlist.Score
+					newConfig.Protocols = nil
 					newConfig.Format = mirrorlist.JsonFormat
 
 					if !reflect.DeepEqual(config, newConfig) {

@@ -115,7 +115,7 @@ type Mirrorlist []Mirror
 type ProtocolOption string
 
 const (
-	HTTPProtocol ProtocolOption = "http"
+	HTTPProtocol  ProtocolOption = "http"
 	HTTPSProtocol ProtocolOption = "https"
 )
 
@@ -135,7 +135,7 @@ type FilterOptions struct {
 	// Protocols defines a list of protocols that a [Mirror]
 	// must support at least one of them
 	//
-	// Note: an empty/nil slice means any protocol
+	// Note: an empty/nil slice means any supported protocol (http/https)
 	Protocols []ProtocolOption
 
 	// MinCompletion specfies the min number that [Mirror.Completion] must be
@@ -174,23 +174,45 @@ const (
 // [FilterOptions]
 func (ml Mirrorlist) Filter(filterOptions FilterOptions) Mirrorlist {
 
-	if len(filterOptions.Countries) != 0 {
-		// lowercase all countries
-		temp := make([]string, len(filterOptions.Countries))
-
-		for i, value := range filterOptions.Countries {
-			temp[i] = strings.ToLower(value)
-		}
-
-		filterOptions.Countries = temp
-	}
-
 	// countryMatches is a helper for filtering mirrors based on their countries
 	countryMatches := func(mirror Mirror) bool {
 		countryMatches := len(filterOptions.Countries) == 0 // any country is allowed
-		countryMatches = countryMatches || slices.Contains(filterOptions.Countries, strings.ToLower(mirror.Country))
-		countryMatches = countryMatches || slices.Contains(filterOptions.Countries, strings.ToLower(mirror.CountryCode))
+
+		countryMatches = countryMatches || slices.ContainsFunc(
+			filterOptions.Countries,
+			func(country string) bool {
+				return strings.EqualFold(mirror.Country, country)
+			},
+		)
+
+		countryMatches = countryMatches || slices.ContainsFunc(
+			filterOptions.Countries,
+			func(country string) bool {
+				return strings.EqualFold(mirror.CountryCode, country)
+			},
+		)
+
 		return countryMatches
+	}
+
+	// protocolMatches is a helper for filtering mirrors based on their protocols
+	protocolMatches := func(mirror Mirror) bool {
+		protocol := ProtocolOption(strings.ToLower(mirror.Protocol))
+		if protocol != HTTPSProtocol && protocol != HTTPProtocol {
+			// we will exclude all mirrors that do not support [HTTPSProtocol] [HTTPProtocol]
+			return false
+		}
+
+		protocolMatches := len(filterOptions.Protocols) == 0
+
+		// we do case-sensitive matching because criteria is defined an [filterOptions.Protocols]
+		// is defined a a slice of "enums"
+		protocolMatches = protocolMatches || slices.Contains(
+			filterOptions.Protocols,
+			protocol,
+		)
+
+		return protocolMatches
 	}
 
 	var filteredMirrorlist Mirrorlist
@@ -203,7 +225,7 @@ func (ml Mirrorlist) Filter(filterOptions FilterOptions) Mirrorlist {
 			continue
 		}
 
-		if len(filterOptions.Protocols) != 0 && !slices.Contains(filterOptions.Protocols, ProtocolOption(strings.ToLower(mirror.Protocol))) {
+		if !protocolMatches(mirror) {
 			continue
 		}
 
@@ -230,6 +252,8 @@ func (ml Mirrorlist) Filter(filterOptions FilterOptions) Mirrorlist {
 func (ml Mirrorlist) Sort(criteria SortCriteria) (Mirrorlist, error) {
 
 	sortedMirrorlist := slices.Clone(ml)
+
+	// we do case-sensitive matching because criteria is defined an an "enum"
 
 	switch criteria {
 	case Score:
@@ -271,6 +295,8 @@ func (ml Mirrorlist) Sort(criteria SortCriteria) (Mirrorlist, error) {
 // Format formats a mirrorlist based on the given [FormatOption]
 // and writes the output to out
 func (ml Mirrorlist) Write(out io.Writer, formatOption FormatOption) error {
+
+	// we do case-sensitive matching because formatOption is defined an an "enum"
 
 	switch formatOption {
 	case PacmanFormat:
