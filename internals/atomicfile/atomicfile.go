@@ -102,7 +102,8 @@ func NewAtomicFile(path string, mode os.FileMode) (*AtomicFile, error) {
 	err = f.Chmod(mode)
 
 	if err != nil {
-		return nil, err
+		// cleanup resources
+		return nil, errors.Join(err, f.Close(), os.Remove(f.Name()))
 	}
 
 	return &AtomicFile{
