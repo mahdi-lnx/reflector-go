@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -85,6 +86,7 @@ func (c *Config) Parse(args []string) error {
 	// if the parsing fails due to validation or some other thing,
 	// c will not be mutated
 	tempC := *c
+	tempC.Countries = slices.Clone(c.Countries)
 
 	// set the verbosity flag
 	flagSet.BoolVar(&tempC.Verbose, "verbose", tempC.Verbose, "Increases the logging verbosity")
@@ -111,10 +113,6 @@ func (c *Config) Parse(args []string) error {
 
 	// set the filtering flags
 
-	// make a deep copy of the slice
-	countries := make([]string, len(tempC.Countries))
-	copy(countries, tempC.Countries)
-
 	defaultValueDiscarded := false // used to indicate if the default values of tempC.Countires are discarded or not
 
 	flagSet.Func("country", "Only return mirrors belonging to the specified country", func(arg string) error {
@@ -124,7 +122,7 @@ func (c *Config) Parse(args []string) error {
 		// we discard all values in the countries slice
 
 		if !defaultValueDiscarded || arg == "" {
-			countries = countries[:0] // take an empty slice out the countries slice
+			tempC.Countries = tempC.Countries[:0] // take an empty slice out the countries slice
 			defaultValueDiscarded = true
 		}
 
@@ -141,7 +139,7 @@ func (c *Config) Parse(args []string) error {
 				return errors.New("malformed country list")
 			}
 
-			countries = append(countries, value)
+			tempC.Countries = append(tempC.Countries, value)
 		}
 
 		return nil
@@ -164,7 +162,6 @@ func (c *Config) Parse(args []string) error {
 	// update tempC.Sort and tempC.Format
 	tempC.Sort = mirrorlist.SortCriteria(sortCriteria)
 	tempC.Format = mirrorlist.FormatOption(mirrorlistFormat)
-	tempC.Countries = countries
 
 	tempC.validate(accErr)
 
