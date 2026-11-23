@@ -111,6 +111,14 @@ func (m Mirror) Benchmark(ctx context.Context, client *http.Client) (float64, er
 // Mirrorlist defines a slice of [Mirror]
 type Mirrorlist []Mirror
 
+// ProtocolOption defines a [Mirror.Protocol]
+type ProtocolOption string
+
+const (
+	HTTPProtocol ProtocolOption = "http"
+	HTTPSProtocol ProtocolOption = "https"
+)
+
 // FilterOption specifies the filters that can be applied to a [Mirrorlist]
 type FilterOptions struct {
 
@@ -124,10 +132,11 @@ type FilterOptions struct {
 	// Note: an nil or an empty slice means all countries
 	Countries []string
 
-	// Protocol that the mirror must support
+	// Protocols defines a list of protocols that a [Mirror]
+	// must support at least one of them
 	//
-	// Note: an empty string means any protocol
-	Protocol string
+	// Note: an empty/nil slice means any protocol
+	Protocols []ProtocolOption
 
 	// MinCompletion specfies the min number that [Mirror.Completion] must be
 	//
@@ -194,7 +203,7 @@ func (ml Mirrorlist) Filter(filterOptions FilterOptions) Mirrorlist {
 			continue
 		}
 
-		if filterOptions.Protocol != "" && !strings.EqualFold(mirror.Protocol, filterOptions.Protocol) {
+		if len(filterOptions.Protocols) != 0 && !slices.Contains(filterOptions.Protocols, ProtocolOption(strings.ToLower(mirror.Protocol))) {
 			continue
 		}
 

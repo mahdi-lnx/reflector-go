@@ -22,7 +22,7 @@ func main() {
 		Threads:        47,
 		Sort:           mirrorlist.DownloadRate,
 		Format:         mirrorlist.PacmanFormat,
-		Protocol:       "https",
+		Protocols:      []mirrorlist.ProtocolOption{ mirrorlist.HTTPSProtocol },
 		MinCompletion:  100,
 		ActiveOnly:     true,
 	}
