@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"math"
 	"slices"
 	"strings"
 	"time"
@@ -148,6 +149,7 @@ func (c *Config) Parse(args []string) error {
 	flagSet.DurationVar(&tempC.Age, "age", tempC.Age, "Only return mirrors that have synced at least in the last specified hours")
 	flagSet.IntVar(&tempC.Number, "number", tempC.Number, "Only return at most n mirrors")
 	flagSet.BoolVar(&tempC.ActiveOnly, "active-only", tempC.ActiveOnly, "Only return mirrors that are active")
+	flagSet.Float64Var(&tempC.MinCompletion, "min-completion", tempC.MinCompletion, "Only return mirrors that have at least the specified completion")
 
 	accErr := &ConfigError{}
 
@@ -198,6 +200,10 @@ func (c *Config) validate(configError *ConfigError) {
 
 	if c.NoBenchmark && c.Sort == mirrorlist.DownloadRate {
 		configError.WriteString("Invalid combination for 'no-benchmark' and 'sort': cannot sort by download-rate when benchmarking is disabled\n")
+	}
+
+	if math.IsNaN(c.MinCompletion) || c.MinCompletion < 0 || c.MinCompletion > 100 {
+		configError.WriteString("Invalid value for option 'min-completion': value must be between 0 and 100 (inclusive)\n")
 	}
 
 	if c.Format != mirrorlist.PacmanFormat && c.Format != mirrorlist.JsonFormat && c.Format != mirrorlist.PrettyJsonFormat {
