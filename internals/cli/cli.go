@@ -147,6 +147,7 @@ func (c *Config) Parse(args []string) error {
 
 	flagSet.DurationVar(&tempC.Age, "age", tempC.Age, "Only return mirrors that have synced at least in the last specified hours")
 	flagSet.IntVar(&tempC.Number, "number", tempC.Number, "Only return at most n mirrors")
+	flagSet.BoolVar(&tempC.ActiveOnly, "active-only", tempC.ActiveOnly, "Only return mirrors that are active")
 
 	accErr := &ConfigError{}
 
