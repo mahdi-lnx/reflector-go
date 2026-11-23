@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -96,6 +97,24 @@ func TestConfigValidate(t *testing.T) {
 				wantErrMessageToContain: []string{"request-timeout"},
 			},
 			{
+				name: "reject overflowed min-completion",
+				newInvalidConfig: func() Config {
+					config := newValidConfig()
+					config.MinCompletion = 200.2
+					return config
+				},
+				wantErrMessageToContain: []string{"min-completion"},
+			},
+			{
+				name: "reject underflowed min-completion",
+				newInvalidConfig: func() Config {
+					config := newValidConfig()
+					config.MinCompletion = -1.2
+					return config
+				},
+				wantErrMessageToContain: []string{"min-completion"},
+			},
+			{
 				name: "reject multiple invalid flags",
 				newInvalidConfig: func() Config {
 					config := newValidConfig()
@@ -104,12 +123,14 @@ func TestConfigValidate(t *testing.T) {
 					config.Format = "some invalid output format"
 					config.Number = -1
 					config.RequestTimeout = -1
+					config.MinCompletion = math.NaN()
 					config.Threads = 0
 					return config
 				},
 				wantErrMessageToContain: []string{
 					"threads", "request-timeout", "download-rate",
 					"no-benchmark", "sort", "format", "number",
+					"min-completion",
 				},
 			},
 		}
@@ -207,7 +228,30 @@ func TestConfigParse(t *testing.T) {
 					err := config.Parse(flags)
 
 					if err == nil {
-						return errors.New("expected err to not be nil after parsing unknown flags")
+						return errors.New("expected err to not be nil after parsing an invalid --age")
+					}
+
+					if !errors.Is(err, ErrInvalidConfig) {
+						return fmt.Errorf("expected err's error tree to have ErrInvalidConfig")
+					}
+
+					if defaultConfig := newValidConfig(); !reflect.DeepEqual(config, defaultConfig) {
+						return fmt.Errorf("expected config to be: %+v\ngot: %+v", defaultConfig, config)
+					}
+
+					return nil
+				},
+			},
+			{
+				name:  "reject invalid min-completion",
+				flags: []string{"--min-completion", "-1.2"},
+				check: func(flags []string) error {
+					config := newValidConfig()
+
+					err := config.Parse(flags)
+
+					if err == nil {
+						return errors.New("expected err to not be nil after parsing an invalid --min-completion")
 					}
 
 					if !errors.Is(err, ErrInvalidConfig) {
@@ -230,7 +274,7 @@ func TestConfigParse(t *testing.T) {
 					err := config.Parse(flags)
 
 					if err == nil {
-						return errors.New("expected err to not be nil after parsing unknown flags")
+						return errors.New("expected err to not be nil after parsing an invalid --sort")
 					}
 
 					if !errors.Is(err, ErrInvalidConfig) {
@@ -253,7 +297,7 @@ func TestConfigParse(t *testing.T) {
 					err := config.Parse(flags)
 
 					if err == nil {
-						return errors.New("expected err to not be nil after parsing unknown flags")
+						return errors.New("expected err to not be nil after parsing an invalid --number")
 					}
 
 					if !errors.Is(err, ErrInvalidConfig) {
@@ -276,7 +320,7 @@ func TestConfigParse(t *testing.T) {
 					err := config.Parse(flags)
 
 					if err == nil {
-						return errors.New("expected err to not be nil after parsing malformed country list")
+						return errors.New("expected err to not be nil after parsing a malformed --country")
 					}
 
 					if errors.Is(err, ErrInvalidConfig) {
@@ -299,7 +343,7 @@ func TestConfigParse(t *testing.T) {
 					err := config.Parse(flags)
 
 					if err == nil {
-						return errors.New("expected err to not be nil after parsing unknown flags")
+						return errors.New("expected err to not be nil after parsing an invalid --threads")
 					}
 
 					if !errors.Is(err, ErrInvalidConfig) {
@@ -320,6 +364,7 @@ func TestConfigParse(t *testing.T) {
 					"--country", "2",
 					"--country", "3",
 					"--age", "-2h",
+					"--min-completion", "102.2",
 					"--number", "0",
 					"--threads", "0",
 					"--request-timeout", "0",
@@ -330,7 +375,7 @@ func TestConfigParse(t *testing.T) {
 					err := config.Parse(flags)
 
 					if err == nil {
-						return errors.New("expected err to not be nil after parsing invalid a combo of flags")
+						return errors.New("expected err to not be nil after parsing an invalid combo of flags")
 					}
 
 					if !errors.Is(err, ErrInvalidConfig) {
