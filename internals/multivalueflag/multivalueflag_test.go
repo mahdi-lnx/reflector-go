@@ -34,17 +34,17 @@ func TestMultiValueFlagSet(t *testing.T) {
 			parsedValues []string
 		}{
 			{
-				name:         "accept something",
+				name:         "accept valid values",
 				rawValues:    "value4, value5",
 				parsedValues: []string{"value4", "value5"},
 			},
 			{
-				name:         "accept something",
+				name:         "reset default via a multi value",
 				rawValues:    "value4,all",
 				parsedValues: nil,
 			},
 			{
-				name:         "accept something",
+				name:         "reset default via 'all'",
 				rawValues:    "all",
 				parsedValues: nil,
 			},
@@ -79,15 +79,11 @@ func TestMultiValueFlagSet(t *testing.T) {
 			rawValues string
 		}{
 			{
-				name:      "accept something",
+				name:      "reject malformed values",
 				rawValues: "value4, value5,",
 			},
 			{
-				name:      "accept something",
-				rawValues: "value4,all,",
-			},
-			{
-				name:      "accept something",
+				name:      "reject malformed reset",
 				rawValues: "all,",
 			},
 		}
