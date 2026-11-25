@@ -31,50 +31,64 @@ Requires Go 1.27.2 or later
 go install github.com/mahdi-lnx/reflector-go@latest
 ```
 
-Ensure that your Go binary directory (`$HOME/go/bin` by default) is included in your `PATH`.
+Ensure that your Go binary installation directory (`$HOME/go/bin` by default) is included in your `PATH`.
 
 ## Usage
 
-Generate a mirrorlist using the default configuration:
+Generate a Pacman-compatible mirrorlist using the default configuration:
 
 ```sh
 reflector-go
 ```
 
-Select the 10 fastest active HTTPS mirrors in Canada and the United States:
+Select up to 10 of the fastest active HTTPS mirrors in Canada and the United States:
 
 ```sh
-reflector-go --country CA,US --number 10
+reflector-go --country ca,us --sort download-rate --number 10
 ```
 
-Select recently synchronized mirrors without running download benchmarks:
+Select up to 10 mirrors synchronized within the last 12 hours, ranked by 
+most recent synchronization, without running download benchmarks:
 
 ```sh
 reflector-go --age 12h --no-benchmark --sort age --number 10
 ```
 
-Export mirror metadata as JSON, ranked by the official mirror score:
+Include both HTTP and HTTPS mirrors with a minimum completion rate of 95%:
+
+```sh
+reflector-go --protocol all --min-completion 95
+```
+
+Export mirror metadata as human-readable JSON, ranked by the official Arch Linux mirror score, without running download benchmarks:
 
 ```sh
 reflector-go --no-benchmark --sort score --format pretty-json
 ```
 
-Benchmark mirrors using fewer concurrent workers and a longer request timeout:
+Generate compact JSON output for scripting and automation:
+
+```sh
+reflector-go --no-benchmark --sort score --format json
+```
+
+Benchmark mirrors using a maximum of 8 concurrent workers, a 15-second HTTP transaction timeout, and verbose logging:
 
 ```sh
 reflector-go --threads 8 --request-timeout 15s --verbose
 ```
 
-Save the generated mirrorlist to a file:
+Save the generated mirrorlist to a local file:
 
 ```sh
-reflector-go --country CA,US --number 10 --save mirrorlist
+reflector-go --country ca --country us --number 10 --save ./mirrorlist.txt
 ```
 
-Save the generated mirrorlist directly to the Pacman configuration directory:
+Save the generated mirrorlist directly to the system's Pacman mirrorlist 
+file:
 
 ```sh
-sudo "$(command -v reflector-go)" --country CA,US --number 10 --save /etc/pacman.d/mirrorlist
+sudo reflector-go --country CA,US --number 10 --save /etc/pacman.d/mirrorlist
 ```
 
 > [!IMPORTANT]
@@ -82,8 +96,13 @@ sudo "$(command -v reflector-go)" --country CA,US --number 10 --save /etc/pacman
 > Review the generated output and back up your existing mirrorlist
 > before replacing it.
 
-Root privileges are not required for ordinary benchmarking or writing
-to stdout.
+Root privileges are not required for benchmarking, writing to stdout, or saving output to files in writable directories.
+
+To view all available command-line options:
+
+```sh
+reflector-go --help
+```
 
 ## Command-line options
 
