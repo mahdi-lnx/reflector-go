@@ -33,6 +33,9 @@ go install github.com/mahdi-lnx/reflector-go@latest
 
 Ensure that your Go binary installation directory (`$HOME/go/bin` by default) is included in your `PATH`.
 
+> [!NOTE]
+> Additional installation methods are planned for future releases.
+
 ## Usage
 
 Generate a Pacman-compatible mirrorlist using the default configuration:
@@ -177,3 +180,8 @@ This project is inspired by the original [reflector](https://wiki.archlinux.org/
 Mirror metadata is provided by the official [Arch Linux mirror status API](https://archlinux.org/mirrors/status/json/).
 
 This is an independent project and is not an official Arch Linux utility.
+
+## License
+
+This project is licensed under the GNU General Public License v3.0 (GPL-3.0).
+See the [LICENSE](LICENSE) file for details.
